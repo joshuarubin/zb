@@ -1,4 +1,4 @@
-package cmds
+package executables
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"jrubin.io/zb/lib/project"
 )
 
-// Cmd is the cmds command
+// Cmd is the executables command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
@@ -22,7 +22,7 @@ func (cmd *cc) New(app *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
 
 	return cli.Command{
-		Name:      "cmds",
+		Name:      "executables",
 		Usage:     "list all of the executables that will be emitted by the build command",
 		ArgsUsage: "[build flags] [packages]",
 		Before:    cmd.setup,

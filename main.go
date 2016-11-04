@@ -8,8 +8,8 @@ import (
 	"jrubin.io/slog"
 	"jrubin.io/slog/handlers/text"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/cmd/cmds"
 	"jrubin.io/zb/cmd/complete"
+	"jrubin.io/zb/cmd/executables"
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/version"
 )
@@ -33,7 +33,7 @@ var (
 var subcommands = []cmd.Constructor{
 	version.Cmd,
 	list.Cmd,
-	cmds.Cmd,
+	executables.Cmd,
 	complete.Cmd,
 	// TODO(jrubin)
 	// build
