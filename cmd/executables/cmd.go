@@ -18,7 +18,7 @@ type cc struct {
 	Context    *project.Context
 }
 
-func (cmd *cc) New(app *cli.App, config *cmd.Config) cli.Command {
+func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
 
 	return cli.Command{
@@ -31,7 +31,7 @@ func (cmd *cc) New(app *cli.App, config *cmd.Config) cli.Command {
 	}
 }
 
-func (cmd *cc) setup(c *cli.Context) error {
+func (cmd *cc) setup(_ *cli.Context) error {
 	cmd.Context = &project.Context{
 		BuildContext:  cmd.BuildFlags.BuildContext(),
 		SrcDir:        cmd.Cwd,
@@ -50,7 +50,7 @@ func (cmd *cc) run(c *cli.Context) error {
 
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
-			if exe := pkg.Cmd(); exe != "" {
+			if exe := pkg.Executable(); exe != nil {
 				fmt.Fprintln(c.App.Writer, exe)
 			}
 		}

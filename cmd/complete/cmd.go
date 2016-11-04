@@ -10,7 +10,7 @@ import (
 	"jrubin.io/zb/cmd"
 )
 
-// Cmd is the complete function
+// Cmd is the complete command
 var Cmd cmd.Constructor = &cc{}
 
 type shell int
