@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"jrubin.io/slog"
-	"jrubin.io/zb/ellipsis"
+	"jrubin.io/zb/lib/ellipsis"
 )
 
 type Projects struct {

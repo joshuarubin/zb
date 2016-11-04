@@ -1,8 +1,18 @@
 package main
 
-import "github.com/urfave/cli"
+import (
+	"github.com/urfave/cli"
+	"jrubin.io/slog"
+)
 
 func init() {
+	cli.ErrWriter = logger.Writer(slog.ErrorLevel)
+
+	cli.BashCompletionFlag = cli.BoolFlag{
+		Name:   "compgen",
+		Hidden: true,
+	}
+
 	cli.CommandHelpTemplate = `NAME:
    {{.HelpName}} - {{.Usage}}
 

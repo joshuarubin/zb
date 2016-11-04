@@ -1,4 +1,4 @@
-package list
+package cmds
 
 import (
 	"fmt"
@@ -13,32 +13,21 @@ var _ cmd.Constructor = (*Cmd)(nil)
 
 type Cmd struct {
 	*cmd.Config
-	BuildFlags    buildflags.BuildFlags
-	ExcludeVendor bool
-	Projects      *project.Projects
+	BuildFlags buildflags.BuildFlags
+	Projects   *project.Projects
 }
 
-func (cmd *Cmd) New(_ *cli.App, config *cmd.Config) cli.Command {
+func (cmd *Cmd) New(app *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
 
-	ret := cli.Command{
-		Name:      "list",
-		Usage:     "lists the packages in the repos of the packages named by the import paths, one per line.",
-		ArgsUsage: "[-vendor] [build flags] [packages]",
+	return cli.Command{
+		Name:      "cmds",
+		Usage:     "list all of the executables that will be emitted by the build command",
+		ArgsUsage: "[build flags] [packages]",
 		Before:    cmd.setup,
 		Action:    cmd.run,
-		Flags: []cli.Flag{
-			cli.BoolFlag{
-				Name:        "vendor",
-				Usage:       "exclude vendor directories",
-				Destination: &cmd.ExcludeVendor,
-			},
-		},
+		Flags:     cmd.BuildFlags.Flags(),
 	}
-
-	ret.Flags = append(ret.Flags, cmd.BuildFlags.Flags()...)
-
-	return ret
 }
 
 func (cmd *Cmd) setup(c *cli.Context) error {
@@ -46,7 +35,7 @@ func (cmd *Cmd) setup(c *cli.Context) error {
 		BuildContext:  cmd.BuildFlags.BuildContext(),
 		SrcDir:        cmd.Cwd,
 		Logger:        cmd.Logger,
-		ExcludeVendor: cmd.ExcludeVendor,
+		ExcludeVendor: true,
 	}
 
 	return nil
@@ -60,7 +49,9 @@ func (cmd *Cmd) run(c *cli.Context) error {
 
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
-			fmt.Fprintln(c.App.Writer, pkg.ImportPath)
+			if exe := pkg.Cmd(); exe != "" {
+				fmt.Fprintln(c.App.Writer, exe)
+			}
 		}
 	}
 

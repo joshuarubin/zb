@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"jrubin.io/slog"
-	"jrubin.io/zb/ellipsis"
+	"jrubin.io/zb/lib/ellipsis"
 
 	"github.com/pkg/errors"
 )
