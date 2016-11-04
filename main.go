@@ -3,7 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
+
+	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -13,14 +17,23 @@ import (
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/version"
+	"jrubin.io/zb/project"
 )
 
 var (
+	// populated by zb build ldflags
+	GitCommit, BuildDate string
+
 	logger slog.Logger
 
-	config = cmd.Config{Logger: &logger}
-	level  = slog.WarnLevel
-	app    = cli.NewApp()
+	level = slog.WarnLevel
+	app   = cli.NewApp()
+
+	config = cmd.Config{
+		GitCommit: &GitCommit,
+		BuildDate: &BuildDate,
+		Logger:    &logger,
+	}
 )
 
 var subcommands = []cmd.Constructor{
@@ -30,10 +43,55 @@ var subcommands = []cmd.Constructor{
 	// build
 	// lint
 	// test
-	// imports? (list non-std, not-in-projec imports of project)
+	// imports? (list non-std, not-in-project recursive imports of project)
+	// save? (copy imports to vendor/)
+	// list out of date imports?
+}
+
+func gitCommit() (string, error) {
+	// TODO(jrubin) delete this when set by zb build
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	dir, err := project.ProjectDir(cwd)
+	if err != nil {
+		return "", err
+	}
+
+	dir = filepath.Join(dir, ".git")
+
+	repo, err := git.NewFilesystemRepository(dir)
+	if err != nil {
+		return "", err
+	}
+
+	head, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
+
+	return head.Hash().String(), nil
+}
+
+const dateFormat = "2006-01-02T15:04:05+00:00"
+
+func buildDate() string {
+	// TODO(jrubin) delete this when set by zb build
+	return time.Now().UTC().Format(dateFormat)
 }
 
 func init() {
+	var err error
+	GitCommit, err = gitCommit()
+	if err != nil {
+		panic(err)
+	}
+
+	BuildDate = buildDate()
+
 	cli.ErrWriter = logger.Writer(slog.ErrorLevel)
 
 	app.Name = "zb"

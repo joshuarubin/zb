@@ -86,7 +86,7 @@ func (ps *Projects) Project(importPath string) (*Project, error) {
 		return nil, err
 	}
 
-	pd, err := projectDir(pkg.Dir)
+	pd, err := ProjectDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}

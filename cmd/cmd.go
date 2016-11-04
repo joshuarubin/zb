@@ -9,8 +9,9 @@ import (
 )
 
 type Config struct {
-	Logger slog.Interface
-	Cwd    string
+	Logger               slog.Interface
+	Cwd                  string
+	GitCommit, BuildDate *string
 }
 
 type Constructor interface {

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func projectDir(value string) (string, error) {
+func ProjectDir(value string) (string, error) {
 	dir := value
 	for {
 		test := filepath.Join(dir, ".git")
@@ -61,7 +61,7 @@ func importPathToProjectDir(bc build.Context, importPath string) string {
 	if dir == "" {
 		return ""
 	}
-	dir, err := projectDir(dir)
+	dir, err := ProjectDir(dir)
 	if err != nil || dir == "" {
 		return ""
 	}

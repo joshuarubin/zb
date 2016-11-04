@@ -12,8 +12,8 @@ import (
 var _ cmd.Constructor = (*Cmd)(nil)
 
 type Cmd struct {
+	*cmd.Config
 	BuildFlags    buildflags.BuildFlags
-	Config        *cmd.Config
 	ExcludeVendor bool
 	Projects      *project.Projects
 }
@@ -44,8 +44,8 @@ func (cmd *Cmd) New(_ *cli.App, config *cmd.Config) cli.Command {
 func (cmd *Cmd) setup(c *cli.Context) error {
 	cmd.Projects = &project.Projects{
 		BuildContext:  cmd.BuildFlags.BuildContext(),
-		SrcDir:        cmd.Config.Cwd,
-		Logger:        cmd.Config.Logger,
+		SrcDir:        cmd.Cwd,
+		Logger:        cmd.Logger,
 		ExcludeVendor: cmd.ExcludeVendor,
 	}
 
