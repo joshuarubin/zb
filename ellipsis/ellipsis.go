@@ -1,7 +1,6 @@
-package pkgs
+package ellipsis
 
 import (
-	"fmt"
 	"go/build"
 	"os"
 	"path"
@@ -9,6 +8,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"jrubin.io/slog"
 )
 
 // Taken nearly verbatim from go source src/cmd/go/main.go
@@ -24,20 +25,16 @@ var (
 	gorootSrc = filepath.Join(goroot, "src")
 )
 
-type Warner interface {
-	Warn(string)
-}
-
-// ImportPaths returns the import paths to use for the given command line.
-func ImportPaths(buildContext build.Context, warner Warner, args ...string) []string {
-	args = importPathsNoDotExpansion(buildContext, args, warner)
+// Expand ellipsis in any string in args
+func Expand(buildContext build.Context, logger slog.Interface, args ...string) []string {
+	args = importPathsNoDotExpansion(buildContext, args, logger)
 	var out []string
 	for _, a := range args {
 		if strings.Contains(a, "...") {
 			if build.IsLocalImport(a) {
-				out = append(out, allPackagesInFS(buildContext, a, warner)...)
+				out = append(out, allPackagesInFS(buildContext, a, logger)...)
 			} else {
-				out = append(out, allPackages(buildContext, a, warner)...)
+				out = append(out, allPackages(buildContext, a, logger)...)
 			}
 			continue
 		}
@@ -48,7 +45,7 @@ func ImportPaths(buildContext build.Context, warner Warner, args ...string) []st
 
 // importPathsNoDotExpansion returns the import paths to use for the given
 // command line, but it does no ... expansion.
-func importPathsNoDotExpansion(buildContext build.Context, args []string, warner Warner) []string {
+func importPathsNoDotExpansion(buildContext build.Context, args []string, logger slog.Interface) []string {
 	if len(args) == 0 {
 		return []string{"."}
 	}
@@ -71,7 +68,7 @@ func importPathsNoDotExpansion(buildContext build.Context, args []string, warner
 			a = path.Clean(a)
 		}
 		if isMetaPackage(a) {
-			out = append(out, allPackages(buildContext, a, warner)...)
+			out = append(out, allPackages(buildContext, a, logger)...)
 			continue
 		}
 		out = append(out, a)
@@ -83,10 +80,10 @@ func importPathsNoDotExpansion(buildContext build.Context, args []string, warner
 // under the $GOPATH directories and $GOROOT matching pattern.
 // The pattern is either "all" (all packages), "std" (standard packages),
 // "cmd" (standard commands), or a path including "...".
-func allPackages(buildContext build.Context, pattern string, warner Warner) []string {
+func allPackages(buildContext build.Context, pattern string, logger slog.Interface) []string {
 	pkgs := matchPackages(buildContext, pattern)
 	if len(pkgs) == 0 {
-		warner.Warn(fmt.Sprintf("%q matched no packages", pattern))
+		logger.WithField("pattern", pattern).Warn("matched no packages")
 	}
 	return pkgs
 }
@@ -225,15 +222,15 @@ func isMetaPackage(name string) bool {
 // allPackagesInFS is like allPackages but is passed a pattern
 // beginning ./ or ../, meaning it should scan the tree rooted
 // at the given directory. There are ... in the pattern too.
-func allPackagesInFS(buildContext build.Context, pattern string, warner Warner) []string {
-	pkgs := matchPackagesInFS(buildContext, pattern, warner)
+func allPackagesInFS(buildContext build.Context, pattern string, logger slog.Interface) []string {
+	pkgs := matchPackagesInFS(buildContext, pattern, logger)
 	if len(pkgs) == 0 {
-		warner.Warn(fmt.Sprintf("%q matched no packages", pattern))
+		logger.WithField("pattern", pattern).Warn("matched no packages")
 	}
 	return pkgs
 }
 
-func matchPackagesInFS(buildContext build.Context, pattern string, warner Warner) []string {
+func matchPackagesInFS(buildContext build.Context, pattern string, logger slog.Interface) []string {
 	// Find directory to begin the scan.
 	// Could be smarter but this one optimization
 	// is enough for now, since ... is usually at the
@@ -288,7 +285,7 @@ func matchPackagesInFS(buildContext build.Context, pattern string, warner Warner
 		// See golang.org/issue/11407.
 		if p, err := buildContext.ImportDir(path, 0); err != nil && (p == nil || len(p.InvalidGoFiles) == 0) {
 			if _, noGo := err.(*build.NoGoError); !noGo {
-				warner.Warn(err.Error())
+				logger.WithError(err).Warn("")
 			}
 			return nil
 		}

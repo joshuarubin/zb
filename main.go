@@ -24,8 +24,13 @@ var (
 )
 
 var subcommands = []cmd.Constructor{
-	&version.Version{},
-	&list.List{},
+	&version.Cmd{},
+	&list.Cmd{},
+	// TODO(jrubin)
+	// build
+	// lint
+	// test
+	// imports? (list non-std, not-in-projec imports of project)
 }
 
 func init() {
