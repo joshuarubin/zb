@@ -10,26 +10,27 @@ import (
 	"jrubin.io/zb/cmd"
 )
 
-var _ cmd.Constructor = (*Cmd)(nil)
+// Cmd is the complete function
+var Cmd cmd.Constructor = &cc{}
 
-type Shell int
+type shell int
 
 const (
-	Bash Shell = iota
-	Zsh
+	bash shell = iota
+	zsh
 )
 
-type Cmd struct {
+type cc struct {
 	AppName  string
 	FlagName string
-	Shell    Shell
-	Bash     Shell
-	Zsh      Shell
+	Shell    shell
+	Bash     shell
+	Zsh      shell
 }
 
-func (cmd *Cmd) New(app *cli.App, _ *cmd.Config) cli.Command {
-	cmd.Bash = Bash
-	cmd.Zsh = Zsh
+func (cmd *cc) New(app *cli.App, _ *cmd.Config) cli.Command {
+	cmd.Bash = bash
+	cmd.Zsh = zsh
 	cmd.AppName = app.Name
 	cmd.FlagName = cli.BashCompletionFlag.Name
 
@@ -42,19 +43,19 @@ func (cmd *Cmd) New(app *cli.App, _ *cmd.Config) cli.Command {
 	}
 }
 
-func (cmd *Cmd) setup(c *cli.Context) error {
+func (cmd *cc) setup(c *cli.Context) error {
 	switch shell := filepath.Base(os.Getenv("SHELL")); shell {
 	case "bash":
-		cmd.Shell = Bash
+		cmd.Shell = bash
 	case "zsh":
-		cmd.Shell = Zsh
+		cmd.Shell = zsh
 	default:
 		return errors.Errorf("unsupported shell: %s", shell)
 	}
 	return nil
 }
 
-func (cmd *Cmd) run(c *cli.Context) error {
+func (cmd *cc) run(c *cli.Context) error {
 	return tpl.Execute(c.App.Writer, cmd)
 }
 

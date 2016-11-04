@@ -14,6 +14,8 @@ var (
 	defaultBuildmode = "default"
 )
 
+// BuildFlags are all the flags that are shared by the go build, clean, get,
+// install, list, run and test commands
 type BuildFlags struct {
 	a             bool
 	n             bool
@@ -36,6 +38,7 @@ type BuildFlags struct {
 	toolexec      stringsFlag
 }
 
+// Args returns strings suitable for passing to the go command line
 func (f *BuildFlags) Args() []string {
 	var args []string
 
@@ -118,6 +121,8 @@ func (f *BuildFlags) Args() []string {
 	return args
 }
 
+// BuildContext returns a build context based on environment variables GOARCH,
+// GOOS, GOROOT, GOPATH, CGO_ENABLED and command line flags
 func (f *BuildFlags) BuildContext() build.Context {
 	c := build.Default
 
@@ -131,6 +136,7 @@ func (f *BuildFlags) BuildContext() build.Context {
 	return c
 }
 
+// Flags returns cli.Flags to use with cli.Command
 func (f *BuildFlags) Flags() []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{

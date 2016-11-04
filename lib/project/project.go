@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// A Project is a collection of Packages contained within a single repository
 type Project struct {
 	Dir           string
 	Packages      []*Package

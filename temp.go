@@ -11,15 +11,15 @@ import (
 
 func init() {
 	var err error
-	GitCommit, err = gitCommit()
+	gitCommit, err = getGitCommit()
 	if err != nil {
 		panic(err)
 	}
 
-	BuildDate = buildDate()
+	buildDate = getBuildDate()
 }
 
-func gitCommit() (string, error) {
+func getGitCommit() (string, error) {
 	// TODO(jrubin) delete this when set by zb build
 
 	cwd, err := os.Getwd()
@@ -27,8 +27,8 @@ func gitCommit() (string, error) {
 		return "", err
 	}
 
-	dir, err := project.ProjectDir(cwd)
-	if err != nil {
+	dir := project.Dir(cwd)
+	if dir == "" {
 		return "", err
 	}
 
@@ -49,7 +49,7 @@ func gitCommit() (string, error) {
 
 const dateFormat = "2006-01-02T15:04:05+00:00"
 
-func buildDate() string {
+func getBuildDate() string {
 	// TODO(jrubin) delete this when set by zb build
 	return time.Now().UTC().Format(dateFormat)
 }

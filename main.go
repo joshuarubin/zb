@@ -16,9 +16,7 @@ import (
 
 var (
 	// populated by zb build ldflags
-
-	GitCommit string
-	BuildDate string
+	gitCommit, buildDate string
 
 	logger slog.Logger
 
@@ -26,17 +24,17 @@ var (
 	app   = cli.NewApp()
 
 	config = cmd.Config{
-		GitCommit: &GitCommit,
-		BuildDate: &BuildDate,
+		GitCommit: &gitCommit,
+		BuildDate: &buildDate,
 		Logger:    &logger,
 	}
 )
 
 var subcommands = []cmd.Constructor{
-	&version.Cmd{},
-	&list.Cmd{},
-	&cmds.Cmd{},
-	&complete.Cmd{},
+	version.Cmd,
+	list.Cmd,
+	cmds.Cmd,
+	complete.Cmd,
 	// TODO(jrubin)
 	// build
 	// lint

@@ -8,14 +8,15 @@ import (
 	"jrubin.io/zb/cmd"
 )
 
-var _ cmd.Constructor = (*Cmd)(nil)
+// Cmd is the version command
+var Cmd cmd.Constructor = &cc{}
 
-type Cmd struct {
+type cc struct {
 	*cmd.Config
 	Short bool
 }
 
-func (cmd *Cmd) New(app *cli.App, config *cmd.Config) cli.Command {
+func (cmd *cc) New(app *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
 
 	return cli.Command{
@@ -31,7 +32,7 @@ func (cmd *Cmd) New(app *cli.App, config *cmd.Config) cli.Command {
 	}
 }
 
-func (cmd *Cmd) run(c *cli.Context) error {
+func (cmd *cc) run(c *cli.Context) error {
 	if cmd.Short {
 		fmt.Fprintf(c.App.Writer, "%s\n", c.App.Version)
 		return nil

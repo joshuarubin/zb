@@ -8,20 +8,24 @@ import (
 	"jrubin.io/slog"
 )
 
+// Config is passed into each command's New Constructor
 type Config struct {
 	Logger               slog.Interface
 	Cwd                  string
 	GitCommit, BuildDate *string
 }
 
+// Constructor returns a cli.Command
 type Constructor interface {
 	New(app *cli.App, config *Config) cli.Command
 }
 
+// BashComplete prints words suitable for completion of the App
 func BashComplete(c *cli.Context) {
 	bashComplete(c, c.App.Commands, c.App.Flags)
 }
 
+// BashCommandComplete prints words suitable for completion of a Command
 func BashCommandComplete(cmd cli.Command) cli.BashCompleteFunc {
 	return func(c *cli.Context) {
 		bashComplete(c, cmd.Subcommands, cmd.Flags)

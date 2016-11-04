@@ -9,16 +9,17 @@ import (
 	"jrubin.io/zb/lib/project"
 )
 
-var _ cmd.Constructor = (*Cmd)(nil)
+// Cmd is the list command
+var Cmd cmd.Constructor = &cc{}
 
-type Cmd struct {
+type cc struct {
 	*cmd.Config
 	BuildFlags    buildflags.BuildFlags
 	ExcludeVendor bool
-	Projects      *project.Projects
+	Context       *project.Context
 }
 
-func (cmd *Cmd) New(_ *cli.App, config *cmd.Config) cli.Command {
+func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
 
 	ret := cli.Command{
@@ -41,8 +42,8 @@ func (cmd *Cmd) New(_ *cli.App, config *cmd.Config) cli.Command {
 	return ret
 }
 
-func (cmd *Cmd) setup(c *cli.Context) error {
-	cmd.Projects = &project.Projects{
+func (cmd *cc) setup(c *cli.Context) error {
+	cmd.Context = &project.Context{
 		BuildContext:  cmd.BuildFlags.BuildContext(),
 		SrcDir:        cmd.Cwd,
 		Logger:        cmd.Logger,
@@ -52,8 +53,8 @@ func (cmd *Cmd) setup(c *cli.Context) error {
 	return nil
 }
 
-func (cmd *Cmd) run(c *cli.Context) error {
-	projects, err := cmd.Projects.List(c.Args()...)
+func (cmd *cc) run(c *cli.Context) error {
+	projects, err := cmd.Context.Projects(c.Args()...)
 	if err != nil {
 		return err
 	}

@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
-func ProjectDir(value string) (string, error) {
+// Dir checks the directory value for the presence of .git and will walk up the
+// filesystem hierarchy to find one. Returns an empty string if no directory
+// containing .git was found.
+func Dir(value string) string {
 	dir := value
 	for {
 		test := filepath.Join(dir, ".git")
@@ -17,14 +18,14 @@ func ProjectDir(value string) (string, error) {
 		if err != nil {
 			ndir := filepath.Dir(dir)
 			if ndir == dir {
-				return "", errors.Errorf("could not find project dir for: %s", value)
+				return ""
 			}
 
 			dir = ndir
 			continue
 		}
 
-		return dir, nil
+		return dir
 	}
 }
 
@@ -61,9 +62,5 @@ func importPathToProjectDir(bc build.Context, importPath string) string {
 	if dir == "" {
 		return ""
 	}
-	dir, err := ProjectDir(dir)
-	if err != nil || dir == "" {
-		return ""
-	}
-	return dir
+	return Dir(dir)
 }
