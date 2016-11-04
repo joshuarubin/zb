@@ -1,6 +1,9 @@
 package buildflags
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // taken from go source src/cmd/go/build.go
 
@@ -56,5 +59,5 @@ func (v *stringsFlag) Set(s string) error {
 }
 
 func (v *stringsFlag) String() string {
-	return "<stringsFlag>"
+	return strings.Join(*v, " ")
 }

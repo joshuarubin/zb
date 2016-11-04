@@ -241,9 +241,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 			-race flag, the install suffix is automatically set to race or, if
 			set explicitly, has _race appended to it.  Likewise for the -msan
 			flag.  Using a -buildmode option that requires non-default compile
-			flags has a similar effect.
-
-			`,
+			flags has a similar effect.`,
 		},
 		cli.GenericFlag{
 			Name:  "ldflags",
@@ -258,9 +256,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 			Usage: `
 
 			link against shared libraries previously created with
-			-buildmode=shared.
-
-			`,
+			-buildmode=shared.`,
 		},
 		cli.StringFlag{
 			Name:        "pkgdir",
@@ -270,9 +266,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 			install and load all packages from dir instead of the usual
 			locations. For example, when building with a non-standard
 			configuration, use -pkgdir to keep generated packages in a separate
-			location.
-
-			`,
+			location.`,
 		},
 		cli.GenericFlag{
 			Name:  "tags",
@@ -290,9 +284,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 
 			a program to use to invoke toolchain programs like vet and asm. For
 			example, instead of running asm, the go command will run 'cmd args
-			/path/to/asm <arguments for asm>'.
-
-			`,
+			/path/to/asm <arguments for asm>'.`,
 		},
 	}
 }

@@ -3,7 +3,6 @@ package pkgs
 import (
 	"fmt"
 	"go/build"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -25,16 +24,20 @@ var (
 	gorootSrc = filepath.Join(goroot, "src")
 )
 
+type Warner interface {
+	Warn(string)
+}
+
 // ImportPaths returns the import paths to use for the given command line.
-func ImportPaths(buildContext build.Context, args ...string) []string {
-	args = importPathsNoDotExpansion(buildContext, args)
+func ImportPaths(buildContext build.Context, warner Warner, args ...string) []string {
+	args = importPathsNoDotExpansion(buildContext, args, warner)
 	var out []string
 	for _, a := range args {
 		if strings.Contains(a, "...") {
 			if build.IsLocalImport(a) {
-				out = append(out, allPackagesInFS(buildContext, a)...)
+				out = append(out, allPackagesInFS(buildContext, a, warner)...)
 			} else {
-				out = append(out, allPackages(buildContext, a)...)
+				out = append(out, allPackages(buildContext, a, warner)...)
 			}
 			continue
 		}
@@ -45,7 +48,7 @@ func ImportPaths(buildContext build.Context, args ...string) []string {
 
 // importPathsNoDotExpansion returns the import paths to use for the given
 // command line, but it does no ... expansion.
-func importPathsNoDotExpansion(buildContext build.Context, args []string) []string {
+func importPathsNoDotExpansion(buildContext build.Context, args []string, warner Warner) []string {
 	if len(args) == 0 {
 		return []string{"."}
 	}
@@ -68,7 +71,7 @@ func importPathsNoDotExpansion(buildContext build.Context, args []string) []stri
 			a = path.Clean(a)
 		}
 		if isMetaPackage(a) {
-			out = append(out, allPackages(buildContext, a)...)
+			out = append(out, allPackages(buildContext, a, warner)...)
 			continue
 		}
 		out = append(out, a)
@@ -80,10 +83,10 @@ func importPathsNoDotExpansion(buildContext build.Context, args []string) []stri
 // under the $GOPATH directories and $GOROOT matching pattern.
 // The pattern is either "all" (all packages), "std" (standard packages),
 // "cmd" (standard commands), or a path including "...".
-func allPackages(buildContext build.Context, pattern string) []string {
+func allPackages(buildContext build.Context, pattern string, warner Warner) []string {
 	pkgs := matchPackages(buildContext, pattern)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		warner.Warn(fmt.Sprintf("%q matched no packages", pattern))
 	}
 	return pkgs
 }
@@ -222,15 +225,15 @@ func isMetaPackage(name string) bool {
 // allPackagesInFS is like allPackages but is passed a pattern
 // beginning ./ or ../, meaning it should scan the tree rooted
 // at the given directory. There are ... in the pattern too.
-func allPackagesInFS(buildContext build.Context, pattern string) []string {
-	pkgs := matchPackagesInFS(buildContext, pattern)
+func allPackagesInFS(buildContext build.Context, pattern string, warner Warner) []string {
+	pkgs := matchPackagesInFS(buildContext, pattern, warner)
 	if len(pkgs) == 0 {
-		fmt.Fprintf(os.Stderr, "warning: %q matched no packages\n", pattern)
+		warner.Warn(fmt.Sprintf("%q matched no packages", pattern))
 	}
 	return pkgs
 }
 
-func matchPackagesInFS(buildContext build.Context, pattern string) []string {
+func matchPackagesInFS(buildContext build.Context, pattern string, warner Warner) []string {
 	// Find directory to begin the scan.
 	// Could be smarter but this one optimization
 	// is enough for now, since ... is usually at the
@@ -285,7 +288,7 @@ func matchPackagesInFS(buildContext build.Context, pattern string) []string {
 		// See golang.org/issue/11407.
 		if p, err := buildContext.ImportDir(path, 0); err != nil && (p == nil || len(p.InvalidGoFiles) == 0) {
 			if _, noGo := err.(*build.NoGoError); !noGo {
-				log.Print(err)
+				warner.Warn(err.Error())
 			}
 			return nil
 		}
