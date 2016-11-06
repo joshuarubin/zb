@@ -20,9 +20,9 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	*cmd.Config
-	BuildFlags buildflags.BuildFlags
-	Context    *project.Context
-	Install    bool
+	BuildFlags     buildflags.BuildFlags
+	Context        *project.Context
+	Install, Force bool
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
@@ -32,19 +32,29 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Name:      "build",
 		Usage:     "build all of the executables in each of the projects",
 		ArgsUsage: "[-i] [build flags] [packages]",
-		Before:    cmd.setup,
-		Action:    cmd.run,
+		Before: func(c *cli.Context) error {
+			cmd.setup()
+			return nil
+		},
+		Action: func(c *cli.Context) error {
+			return cmd.run(c.Args()...)
+		},
 		Flags: append(cmd.BuildFlags.Flags(),
 			cli.BoolFlag{
 				Name:        "i",
 				Usage:       "install the packages that are dependencies of the target",
 				Destination: &cmd.Install,
 			},
+			cli.BoolFlag{
+				Name:        "f",
+				Usage:       "force build even if no dependencies have been updated",
+				Destination: &cmd.Force,
+			},
 		),
 	}
 }
 
-func (cmd *cc) setup(c *cli.Context) error {
+func (cmd *cc) setup() {
 	cmd.Context = &project.Context{
 		BuildContext:  cmd.BuildFlags.BuildContext(),
 		BuildFlags:    cmd.BuildFlags.Args(),
@@ -52,12 +62,10 @@ func (cmd *cc) setup(c *cli.Context) error {
 		Logger:        cmd.Logger,
 		ExcludeVendor: false,
 	}
-
-	return nil
 }
 
-func (cmd *cc) run(c *cli.Context) error {
-	projects, err := cmd.Context.Projects(c.Args()...)
+func (cmd *cc) run(args ...string) error {
+	projects, err := cmd.Context.Projects(args...)
 	if err != nil {
 		return err
 	}
@@ -70,6 +78,14 @@ func (cmd *cc) run(c *cli.Context) error {
 	var built bool
 
 	for _, target := range targets {
+		if cmd.Force {
+			if err := target.Build(); err != nil {
+				return err
+			}
+			built = true
+			continue
+		}
+
 		deps, err := target.Dependencies()
 		if err != nil {
 			return err
@@ -77,8 +93,9 @@ func (cmd *cc) run(c *cli.Context) error {
 
 		// build target if any of its dependencies are newer than itself
 
+		mt := target.ModTime()
 		for _, d := range deps {
-			if d.ModTime().After(target.ModTime()) {
+			if d.ModTime().After(mt) {
 				cmd.Logger.WithField("name", target.Name()).Info("building")
 
 				if err := target.Build(); err != nil {

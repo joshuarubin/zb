@@ -185,9 +185,10 @@ func (pkg *Package) Build() error {
 	args = append(args, "-o", pkg.Command().Name())
 	args = append(args, pkg.ImportPath)
 
-	writer := pkg.Logger.Writer(slog.InfoLevel)
+	pkg.Logger.Info("> go " + strings.Join(args, " "))
 
-	pkg.Logger.Info("=> go " + strings.Join(args, " "))
+	writer := pkg.Logger.Writer(slog.InfoLevel).Prefix("< ")
+	defer writer.Close()
 
 	cmd := exec.Command("go", args...) // nosec
 	cmd.Stdout = writer
