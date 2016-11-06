@@ -10,7 +10,7 @@ import (
 
 // Config is passed into each command's New Constructor
 type Config struct {
-	Logger               slog.Interface
+	Logger               *slog.Logger
 	Cwd                  string
 	GitCommit, BuildDate *string
 }

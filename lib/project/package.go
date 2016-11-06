@@ -2,10 +2,9 @@ package project
 
 import (
 	"go/build"
-	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"jrubin.io/slog"
 )
@@ -15,8 +14,9 @@ type Package struct {
 	*build.Package
 	IsVendored   bool
 	Project      *Project
-	Logger       slog.Interface
+	Logger       *slog.Logger
 	BuildContext build.Context
+	BuildFlags   []string
 
 	dependencies []Dependency
 }
@@ -180,15 +180,17 @@ func (pkg *Package) Targets() ([]*Target, error) {
 }
 
 func (pkg *Package) Build() error {
-	// TODO(jrubin)
-	command := pkg.Command()
-	if command == nil {
-		return nil
-	}
+	args := []string{"build"}
+	args = append(args, pkg.BuildFlags...)
+	args = append(args, "-o", pkg.Command().Name())
+	args = append(args, pkg.ImportPath)
 
-	if err := os.Chtimes(command.Name(), time.Now(), time.Now()); err != nil {
-		return err
-	}
+	writer := pkg.Logger.Writer(slog.InfoLevel)
 
-	return nil
+	pkg.Logger.Info("=> go " + strings.Join(args, " "))
+
+	cmd := exec.Command("go", args...) // nosec
+	cmd.Stdout = writer
+	cmd.Stderr = writer
+	return cmd.Run()
 }

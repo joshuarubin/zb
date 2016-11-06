@@ -13,9 +13,10 @@ import (
 // Context for package related commands
 type Context struct {
 	BuildContext  build.Context
+	BuildFlags    []string
 	SrcDir        string
 	ExcludeVendor bool
-	Logger        slog.Interface
+	Logger        *slog.Logger
 }
 
 // Projects lists the unique projects found by parsing the import paths in args
@@ -98,6 +99,7 @@ func (ctx *Context) project(importPath string) (*Project, error) {
 	p := &Project{
 		Dir:           pd,
 		BuildContext:  ctx.BuildContext,
+		BuildFlags:    ctx.BuildFlags,
 		Packages:      make([]*Package, 1),
 		Logger:        ctx.Logger,
 		ExcludeVendor: ctx.ExcludeVendor,
@@ -109,6 +111,7 @@ func (ctx *Context) project(importPath string) (*Project, error) {
 		Logger:       ctx.Logger,
 		IsVendored:   false, // TODO(jrubin)
 		BuildContext: ctx.BuildContext,
+		BuildFlags:   ctx.BuildFlags,
 	}
 
 	return p, nil

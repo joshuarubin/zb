@@ -34,6 +34,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 func (cmd *cc) setup(_ *cli.Context) error {
 	cmd.Context = &project.Context{
 		BuildContext:  cmd.BuildFlags.BuildContext(),
+		BuildFlags:    cmd.BuildFlags.Args(),
 		SrcDir:        cmd.Cwd,
 		Logger:        cmd.Logger,
 		ExcludeVendor: true,

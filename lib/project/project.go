@@ -16,8 +16,9 @@ type Project struct {
 	Dir           string
 	Packages      []*Package
 	BuildContext  build.Context
+	BuildFlags    []string
 	ExcludeVendor bool
-	Logger        slog.Interface
+	Logger        *slog.Logger
 
 	filled bool
 }
@@ -65,6 +66,7 @@ func (p *Project) fillPackages() error {
 			IsVendored:   isVendored,
 			Logger:       p.Logger,
 			BuildContext: p.BuildContext,
+			BuildFlags:   p.BuildFlags,
 		})
 	}
 
