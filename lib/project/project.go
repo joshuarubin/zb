@@ -54,17 +54,31 @@ func (p *Project) fillPackages() error {
 			continue
 		}
 
-		pkg, err := build.Import(importPath, "", build.ImportComment)
+		pkg, err := p.BuildContext.Import(importPath, "", build.ImportComment)
 		if err != nil {
 			return err
 		}
 
 		list.Insert(&Package{
-			Package:    pkg,
-			Project:    p,
-			IsVendored: isVendored,
+			Package:      pkg,
+			Project:      p,
+			IsVendored:   isVendored,
+			Logger:       p.Logger,
+			BuildContext: p.BuildContext,
 		})
 	}
 
 	return nil
+}
+
+func (p *Project) Targets() ([]*Target, error) {
+	var targets []*Target
+	for _, pkg := range p.Packages {
+		t, err := pkg.Targets()
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, t...)
+	}
+	return targets, nil
 }

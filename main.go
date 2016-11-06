@@ -9,8 +9,8 @@ import (
 	"jrubin.io/slog/handlers/text"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/cmd/build"
+	"jrubin.io/zb/cmd/commands"
 	"jrubin.io/zb/cmd/complete"
-	"jrubin.io/zb/cmd/executables"
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/version"
 )
@@ -34,11 +34,12 @@ var (
 var subcommands = []cmd.Constructor{
 	version.Cmd,
 	list.Cmd,
-	executables.Cmd,
+	commands.Cmd,
 	complete.Cmd,
 	build.Cmd,
 	// TODO(jrubin)
 	// build
+	// install
 	// lint
 	// test (with cache like gt)
 	// imports? (list non-std, not-in-project recursive imports of project)

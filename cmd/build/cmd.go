@@ -1,13 +1,9 @@
 package build
 
 import (
-	"fmt"
-
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/buildflags"
-	"jrubin.io/zb/lib/dag"
-	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 )
 
@@ -65,43 +61,37 @@ func (cmd *cc) run(c *cli.Context) error {
 		return err
 	}
 
-	// build a list of dependencies
-	graph := dag.Graph{}
+	targets, err := projects.Targets()
+	if err != nil {
+		return err
+	}
 
-	// use a map to ensure dependencies aren't added twice
-	nodes := map[string]dag.Node{}
+	var built bool
 
-	// start with the final targets, the executables
-	for _, p := range projects {
-		for _, pkg := range p.Packages {
-			if exe := pkg.Executable(); exe != nil {
-				if _, ok := nodes[exe.Path]; ok {
-					continue
+	for _, target := range targets {
+		deps, err := target.Dependencies()
+		if err != nil {
+			return err
+		}
+
+		// build target if any of its dependencies are newer than itself
+
+		for _, d := range deps {
+			if d.ModTime().After(target.ModTime()) {
+				cmd.Logger.WithField("name", target.Name()).Info("building")
+
+				if err := target.Build(); err != nil {
+					return err
 				}
 
-				enode := graph.MakeNode(exe)
-				nodes[exe.Path] = enode
-
-				// TODO(jrubin) test files, other files listed in Package?
-				// TODO(jrubin) get imports and their files too
-				for _, file := range pkg.GoFiles {
-					// TODO(jrubin) file is not absolute
-					if _, ok := nodes[file]; ok {
-						continue
-					}
-
-					fnode := graph.MakeNode(dependency.GoFile(file))
-					nodes[file] = fnode
-
-					graph.MakeEdge(fnode, enode)
-				}
+				built = true
+				break
 			}
 		}
 	}
 
-	sorted := graph.TopologicalSort()
-	for i := range sorted {
-		fmt.Fprintln(c.App.Writer, *sorted[i].Value)
+	if !built {
+		cmd.Logger.Info("nothing to build")
 	}
 
 	return nil
