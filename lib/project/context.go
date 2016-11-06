@@ -106,12 +106,9 @@ func (ctx *Context) project(importPath string) (*Project, error) {
 	}
 
 	p.Packages[0] = &Package{
-		Package:      pkg,
-		Project:      p,
-		Logger:       ctx.Logger,
-		IsVendored:   false, // TODO(jrubin)
-		BuildContext: ctx.BuildContext,
-		BuildFlags:   ctx.BuildFlags,
+		Package:    pkg,
+		Project:    p,
+		IsVendored: false, // TODO(jrubin)
 	}
 
 	return p, nil

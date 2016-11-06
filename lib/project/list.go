@@ -9,7 +9,7 @@ func (l *packageList) Len() int {
 }
 
 func (l *packageList) Less(i, j int) bool {
-	return (*l)[i].Dir < (*l)[j].Dir
+	return (*l)[i].Package.Dir < (*l)[j].Package.Dir
 }
 
 func (l *packageList) Swap(i, j int) {
@@ -18,12 +18,12 @@ func (l *packageList) Swap(i, j int) {
 
 func (l *packageList) Search(dir string) int {
 	return sort.Search(l.Len(), func(i int) bool {
-		return (*l)[i].Dir >= dir
+		return (*l)[i].Package.Dir >= dir
 	})
 }
 
 func (l *packageList) Insert(p *Package) bool {
-	exists, i := l.Exists(p.Dir)
+	exists, i := l.Exists(p.Package.Dir)
 	if exists {
 		return false
 	}
@@ -37,5 +37,5 @@ func (l *packageList) Insert(p *Package) bool {
 
 func (l packageList) Exists(dir string) (bool, int) {
 	i := l.Search(dir)
-	return (i < l.Len() && l[i].Dir == dir), i
+	return (i < l.Len() && l[i].Package.Dir == dir), i
 }

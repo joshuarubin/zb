@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/core"
+
 	"jrubin.io/slog"
 	"jrubin.io/zb/lib/ellipsis"
 
@@ -61,12 +64,9 @@ func (p *Project) fillPackages() error {
 		}
 
 		list.Insert(&Package{
-			Package:      pkg,
-			Project:      p,
-			IsVendored:   isVendored,
-			Logger:       p.Logger,
-			BuildContext: p.BuildContext,
-			BuildFlags:   p.BuildFlags,
+			Package:    pkg,
+			Project:    p,
+			IsVendored: isVendored,
 		})
 	}
 
@@ -83,4 +83,20 @@ func (p *Project) Targets() ([]*Target, error) {
 		targets = append(targets, t...)
 	}
 	return targets, nil
+}
+
+func (p *Project) GitCommit() (core.Hash, error) {
+	dir := filepath.Join(p.Dir, ".git")
+
+	repo, err := git.NewFilesystemRepository(dir)
+	if err != nil {
+		return core.Hash{}, err
+	}
+
+	head, err := repo.Head()
+	if err != nil {
+		return core.Hash{}, err
+	}
+
+	return head.Hash(), nil
 }

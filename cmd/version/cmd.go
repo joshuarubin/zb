@@ -38,11 +38,24 @@ func (cmd *cc) run(c *cli.Context) error {
 		return nil
 	}
 
+	var commit string
+	if cmd.GitCommit != nil {
+		commit = *cmd.GitCommit
+		if len(commit) >= 7 {
+			commit = commit[:7]
+		}
+	}
+
+	var buildDate string
+	if cmd.BuildDate != nil {
+		buildDate = *cmd.BuildDate
+	}
+
 	fmt.Fprintf(c.App.Writer, "%s version %s (git: %s, date: %s, %s)\n",
 		c.App.Name,
 		c.App.Version,
-		(*cmd.GitCommit)[:7],
-		*cmd.BuildDate,
+		commit,
+		buildDate,
 		runtime.Version(),
 	)
 	return nil

@@ -38,13 +38,13 @@ var subcommands = []cmd.Constructor{
 	complete.Cmd,
 	build.Cmd,
 	// TODO(jrubin)
-	// build
 	// install
 	// lint
 	// test (with cache like gt)
 	// imports? (list non-std, not-in-project recursive imports of project)
 	// save? (copy imports to vendor/)
-	// list out of date imports?
+	// list out of date vendor imports?
+	// build (others?) should show TODO/FIXME comments
 }
 
 func init() {

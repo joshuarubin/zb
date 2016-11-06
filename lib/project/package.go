@@ -1,10 +1,12 @@
 package project
 
 import (
+	"fmt"
 	"go/build"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"jrubin.io/slog"
 )
@@ -12,11 +14,8 @@ import (
 // A Package is a single go Package
 type Package struct {
 	*build.Package
-	IsVendored   bool
-	Project      *Project
-	Logger       *slog.Logger
-	BuildContext build.Context
-	BuildFlags   []string
+	*Project
+	IsVendored bool
 
 	dependencies []Dependency
 }
@@ -28,11 +27,7 @@ func (pkg *Package) Command() *InstallTarget {
 		return nil
 	}
 
-	// TODO(jrubin) should executables be put in the project root or in the
-	// directory of the "main" package?
-
-	// file := filepath.Join(pkg.Dir, filepath.Base(pkg.Dir))
-	file := filepath.Join(pkg.Project.Dir, filepath.Base(pkg.Dir))
+	file := filepath.Join(pkg.Project.Dir, filepath.Base(pkg.Package.Dir))
 	return &InstallTarget{
 		Path:    file,
 		Package: pkg,
@@ -43,7 +38,7 @@ func (pkg *Package) InstallTarget() *InstallTarget {
 	path := pkg.PkgObj
 
 	if pkg.IsCommand() {
-		path = filepath.Join(pkg.BinDir, filepath.Base(pkg.Dir))
+		path = filepath.Join(pkg.BinDir, filepath.Base(pkg.Package.Dir))
 	}
 
 	return &InstallTarget{
@@ -179,13 +174,53 @@ func (pkg *Package) Targets() ([]*Target, error) {
 	return targets, nil
 }
 
+const dateFormat = "2006-01-02T15:04:05+00:00"
+
+func (pkg *Package) buildFlags() ([]string, error) {
+	if pkg.Name != "main" {
+		return pkg.BuildFlags, nil
+	}
+
+	for _, f := range pkg.BuildFlags {
+		if f == "-ldflags" {
+			// don't override explicitly proviede ldflags
+			return pkg.BuildFlags, nil
+		}
+	}
+
+	commit, err := pkg.GitCommit()
+	if err != nil {
+		return nil, err
+	}
+
+	ldflags := fmt.Sprintf("-X main.gitCommit=%s -X main.buildDate=%s",
+		commit,
+		time.Now().UTC().Format(dateFormat),
+	)
+
+	return append(pkg.BuildFlags, "-ldflags", ldflags), nil
+}
+
 func (pkg *Package) Build() error {
+	buildFlags, err := pkg.buildFlags()
+	if err != nil {
+		return err
+	}
+
 	args := []string{"build"}
-	args = append(args, pkg.BuildFlags...)
+	args = append(args, buildFlags...)
 	args = append(args, "-o", pkg.Command().Name())
 	args = append(args, pkg.ImportPath)
 
-	pkg.Logger.Info("> go " + strings.Join(args, " "))
+	line := "> go"
+	for _, a := range args {
+		if strings.Contains(a, " ") {
+			line += " '" + a + "'"
+		} else {
+			line += " " + a
+		}
+	}
+	pkg.Logger.Info(line)
 
 	writer := pkg.Logger.Writer(slog.InfoLevel).Prefix("< ")
 	defer writer.Close()
