@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,9 +20,32 @@ var _ Dependency = (*GoFile)(nil)
 
 type GoFile struct {
 	zbcontext.Context
-	Path string
+	Path              string
+	ProjectImportPath string
 
 	dependencies []Dependency
+}
+
+var gofileCache = map[string]*GoFile{}
+var gofileCacheMu sync.Mutex
+
+func NewGoFile(ctx zbcontext.Context, projectimportPath, path string) *GoFile {
+	gofileCacheMu.Lock()
+	defer gofileCacheMu.Unlock()
+
+	if f, ok := gofileCache[path]; ok {
+		return f
+	}
+
+	f := &GoFile{
+		Context:           ctx,
+		Path:              path,
+		ProjectImportPath: projectimportPath,
+	}
+
+	gofileCache[path] = f
+
+	return f
 }
 
 func (e GoFile) Name() string {
@@ -93,8 +117,9 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 
 		// TODO(jrubin) this is a bad way to check for a vendored package
 		if !strings.Contains(e.Path, "/vendor/") && isTodoOrFixme(buf) {
+			base := e.Context.ImportPathToDir(e.ProjectImportPath)
 			e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
-				e.Path,
+				strings.TrimPrefix(e.Path, base+"/"),
 				i,
 				strings.TrimSpace(string(buf)),
 			))

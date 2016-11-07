@@ -131,10 +131,7 @@ func (pkg GoPackage) files() []Dependency {
 
 	gofiles := make([]Dependency, len(files))
 	for i, f := range files {
-		gofiles[i] = &GoFile{
-			Context: pkg.Context,
-			Path:    filepath.Join(pkg.Dir, f),
-		}
+		gofiles[i] = NewGoFile(pkg.Context, pkg.ProjectImportPath, filepath.Join(pkg.Dir, f))
 	}
 
 	return gofiles
