@@ -2,7 +2,6 @@ package dependency
 
 import (
 	"reflect"
-	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -12,24 +11,42 @@ import (
 
 type Target struct {
 	Dependency
-	RequiredBy *Targets
+
+	RequiredBy Targets
 	Data       interface{}
+
+	sync.WaitGroup
+
+	mu        sync.Mutex
+	doneFuncs []func()
+}
+
+func (t *Target) OnDone(fn func()) {
+	t.mu.Lock()
+	t.doneFuncs = append(t.doneFuncs, fn)
+	t.mu.Unlock()
+}
+
+func (t *Target) Done() {
+	t.mu.Lock()
+
+	for len(t.doneFuncs) > 0 {
+		fn := t.doneFuncs[0]
+		t.doneFuncs = t.doneFuncs[1:]
+
+		fn()
+	}
+
+	t.mu.Unlock()
 }
 
 var targetCache = Targets{}
 
 func NewTarget(dep Dependency, req *Target) *Target {
-	var t *Target
+	t := &Target{Dependency: dep}
+	targetCache.Insert(t)
 
-	if ok, i := targetCache.Exists(dep); ok {
-		t = targetCache.Get(i)
-	} else {
-		t = &Target{
-			Dependency: dep,
-			RequiredBy: &Targets{},
-		}
-		targetCache.Insert(t)
-	}
+	t, _ = targetCache.exists(t)
 
 	if req != nil {
 		t.RequiredBy.Insert(req)
@@ -38,7 +55,11 @@ func NewTarget(dep Dependency, req *Target) *Target {
 	return t
 }
 
-func (t Target) typeName() string {
+func (t *Target) key() string {
+	return t.Name() + t.typeName()
+}
+
+func (t *Target) typeName() string {
 	return reflect.Indirect(reflect.ValueOf(t.Dependency)).Type().Name()
 }
 
@@ -47,99 +68,61 @@ func typeName(d Dependency) string {
 }
 
 type Targets struct {
-	list []*Target
+	list map[string]*Target
 	mu   sync.RWMutex
 }
 
-func (ts *Targets) Len() int {
-	ts.mu.RLock()
-	l := len(ts.list)
-	ts.mu.RUnlock()
-	return l
+func (ts *Targets) lenNoLock() int {
+	return len(ts.list)
 }
 
-func (ts *Targets) Less(i, j int) bool {
-	if ts.Get(i).Name() == ts.Get(j).Name() {
-		return ts.Get(i).typeName() < ts.Get(j).typeName()
-	}
-
-	return ts.Get(i).Name() < ts.Get(j).Name()
-}
-
-func (ts *Targets) Swap(i, j int) {
-	ts.mu.Lock()
-	ts.list[i], ts.list[j] = ts.list[j], ts.list[i]
-	ts.mu.Unlock()
-}
-
-func (ts *Targets) Search(d Dependency) int {
-	return sort.Search(ts.Len(), func(i int) bool {
-		if ts.Get(i).Name() == d.Name() {
-			return ts.Get(i).typeName() >= typeName(d)
-		}
-		return ts.Get(i).Name() > d.Name()
-	})
-}
-
-func (ts *Targets) Get(i int) *Target {
-	ts.mu.RLock()
-	t := ts.list[i]
-	ts.mu.RUnlock()
-	return t
-}
-
-func (ts *Targets) Set(i int, t *Target) {
-	ts.mu.Lock()
-	ts.list[i] = t
-	ts.mu.Unlock()
-}
-
-type TargetsRangeFunc func(index int, target *Target)
+type TargetsRangeFunc func(target *Target)
 
 func (ts *Targets) Range(fn TargetsRangeFunc) {
-	ts.mu.RLock()
-	for i, t := range ts.list {
-		fn(i, t)
+	ts.mu.Lock()
+	for _, t := range ts.list {
+		fn(t)
 	}
-	ts.mu.RUnlock()
+	ts.mu.Unlock()
 }
 
 func (ts *Targets) Insert(t *Target) bool {
-	exists, i := ts.Exists(t)
+	ts.mu.Lock()
+	ret := ts.insertNoLock(t)
+	ts.mu.Unlock()
+	return ret
+}
 
-	if exists {
-		e := ts.Get(i)
-		t.RequiredBy.Range(func(_ int, t *Target) {
-			e.RequiredBy.Insert(t)
-		})
-
+func (ts *Targets) insertNoLock(t *Target) bool {
+	if exists, ok := ts.existsNoLock(t); ok {
+		if exists != t {
+			exists.RequiredBy.Append(&t.RequiredBy)
+		}
 		return false
 	}
 
-	ts.mu.Lock()
-	ts.list = append(ts.list, nil)
-	copy(ts.list[i+1:], ts.list[i:])
-	ts.list[i] = t
-	ts.mu.Unlock()
+	if ts.list == nil {
+		ts.list = map[string]*Target{}
+	}
+
+	ts.list[t.key()] = t
 
 	return true
 }
 
-func (ts *Targets) Exists(d Dependency) (bool, int) {
-	i := ts.Search(d)
-	if i >= ts.Len() {
-		return false, i
-	}
+func (ts *Targets) exists(t *Target) (*Target, bool) {
+	ts.mu.Lock()
+	t, i := ts.existsNoLock(t)
+	ts.mu.Unlock()
+	return t, i
+}
 
-	if ts.Get(i).Name() != d.Name() {
-		return false, i
+func (ts *Targets) existsNoLock(t *Target) (*Target, bool) {
+	if ts.list == nil {
+		return nil, false
 	}
-
-	if ts.Get(i).typeName() != typeName(d) {
-		return false, i
-	}
-
-	return true, i
+	exists, ok := ts.list[t.key()]
+	return exists, ok
 }
 
 func (ts *Targets) TopologicalSort() []*Target {
@@ -153,14 +136,14 @@ func (ts *Targets) TopologicalSort() []*Target {
 	}
 
 	for _, target := range ts.list {
-		target.RequiredBy.Range(func(_ int, t *Target) {
+		target.RequiredBy.Range(func(t *Target) {
 			graph.MakeEdge(target.Data.(dag.Node), t.Data.(dag.Node))
 		})
 	}
 
-	ts.mu.RUnlock()
+	ret := make([]*Target, ts.lenNoLock())
 
-	ret := make([]*Target, ts.Len())
+	ts.mu.RUnlock()
 
 	// the graph now contains all possible dependencies
 	// sort it by dependency order
@@ -177,7 +160,9 @@ func (ts *Targets) TopologicalSort() []*Target {
 }
 
 func (ts *Targets) Append(r *Targets) {
-	r.Range(func(_ int, t *Target) {
-		ts.Insert(t)
+	ts.mu.Lock()
+	r.Range(func(t *Target) {
+		ts.insertNoLock(t)
 	})
+	ts.mu.Unlock()
 }

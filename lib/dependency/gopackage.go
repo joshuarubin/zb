@@ -143,13 +143,23 @@ func (pkg GoPackage) packages() ([]Dependency, error) {
 	imports := pkg.Imports
 
 	for _, i := range imports {
-		if !strings.HasPrefix(i, pkg.ProjectImportPath) {
+		if i == "C" {
 			continue
 		}
 
-		p, err := pkg.Import(i, "")
+		if !strings.Contains(i, ".") {
+			// don't import standard packages
+			continue
+		}
+
+		p, err := pkg.Import(i, pkg.Dir)
 		if err != nil {
 			return nil, err
+		}
+
+		base := pkg.Context.ImportPathToDir(pkg.ProjectImportPath)
+		if !strings.HasPrefix(p.Dir, base) {
+			continue
 		}
 
 		pkgs = append(pkgs, &GoPackage{

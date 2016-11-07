@@ -137,9 +137,10 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			break
 		}
 
-		// TODO(jrubin) this is a bad way to check for a vendored package
-		if !strings.Contains(e.Path, "/vendor/") && isTodoOrFixme(buf) {
-			base := e.Context.ImportPathToDir(e.ProjectImportPath)
+		base := e.Context.ImportPathToDir(e.ProjectImportPath)
+		if strings.HasPrefix(e.Path, base) &&
+			!strings.Contains(e.Path, "/vendor/") &&
+			isTodoOrFixme(buf) {
 			e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
 				strings.TrimPrefix(e.Path, base+"/"),
 				i,

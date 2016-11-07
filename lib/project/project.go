@@ -56,7 +56,7 @@ func (p *Project) fillPackages() error {
 			continue
 		}
 
-		pkg, err := p.Import(importPath, "")
+		pkg, err := p.Import(importPath, p.Dir)
 		if err != nil {
 			return err
 		}

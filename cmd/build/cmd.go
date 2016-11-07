@@ -1,8 +1,13 @@
 package build
 
 import (
+	"sync/atomic"
+
+	"golang.org/x/sync/errgroup"
+
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
@@ -53,35 +58,60 @@ func (cmd *cc) run(args ...string) error {
 		return err
 	}
 
-	var built bool
+	// set up the waitgroup dependencies
+	for _, t := range targets {
+		target := t
 
-	for _, target := range targets {
-		if !target.Buildable() {
-			continue
-		}
+		target.RequiredBy.Range(func(r *dependency.Target) {
+			r.Add(1)
+			target.OnDone(r.WaitGroup.Done)
+		})
+	}
+
+	var built uint32
+	var group errgroup.Group
+
+	for _, t := range targets {
+		target := t
 
 		deps, err := target.Dependencies()
 		if err != nil {
 			return err
 		}
 
-		// build target if any of its dependencies are newer than itself
+		group.Go(func() error {
+			defer target.Done()
+			target.Wait()
 
-		for _, d := range deps {
-			if d.ModTime().After(target.ModTime()) {
-				// TODO(jrubin) run builds in parallel where possible
+			if !target.Buildable() {
+				return nil
+			}
+
+			// build target if any of its dependencies are newer than itself
+			for _, dep := range deps {
+				// don't use .Before since filesystem time resolution might
+				// cause files times to be within the same second
+				if !dep.ModTime().After(target.ModTime()) {
+					continue
+				}
 
 				if err := target.Build(); err != nil {
 					return err
 				}
 
-				built = true
-				break
+				atomic.AddUint32(&built, 1)
+				return nil
 			}
-		}
+
+			return nil
+		})
 	}
 
-	if !built {
+	if err := group.Wait(); err != nil {
+		return err
+	}
+
+	if built == 0 {
 		cmd.Logger.Info("nothing to build")
 	}
 

@@ -144,15 +144,6 @@ func (f *BuildFlags) BuildContext() *build.Context {
 	return f.context
 }
 
-func (f *BuildFlags) Import(path, srcDir string) (*build.Package, error) {
-	pkg, err := f.BuildContext().Import(path, srcDir, build.ImportComment)
-	if err != nil {
-		return nil, err
-	}
-
-	return pkg, nil
-}
-
 // Flags returns cli.Flags to use with cli.Command
 func (f *BuildFlags) Flags() []cli.Flag {
 	return []cli.Flag{

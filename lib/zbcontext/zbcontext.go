@@ -23,6 +23,15 @@ type Context struct {
 	GenerateRun   string
 }
 
+func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
+	pkg, err := ctx.BuildContext().Import(path, srcDir, build.ImportComment)
+	if err != nil {
+		return nil, err
+	}
+
+	return pkg, nil
+}
+
 func (ctx *Context) NoGoImportPathToProjectImportPaths(importPath string) []string {
 	dir := ctx.ImportPathToProjectDir(importPath)
 	if dir == "" {
@@ -78,7 +87,6 @@ func (ctx Context) GoExec(args ...string) error {
 }
 
 func (ctx Context) Touch(path string) error {
-	ctx.Logger.Debug("→ touch " + path)
 	now := time.Now()
 	return os.Chtimes(path, now, now)
 }
