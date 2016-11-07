@@ -66,9 +66,9 @@ func quoteCommand(command string, args []string) string {
 }
 
 func (ctx Context) GoExec(args ...string) error {
-	ctx.Logger.Info(quoteCommand("> go", args))
+	ctx.Logger.Info(quoteCommand("→ go", args))
 
-	writer := ctx.Logger.Writer(slog.InfoLevel).Prefix("< ")
+	writer := ctx.Logger.Writer(slog.InfoLevel).Prefix("← ")
 	defer writer.Close()
 
 	cmd := exec.Command("go", args...) // nosec
@@ -78,7 +78,7 @@ func (ctx Context) GoExec(args ...string) error {
 }
 
 func (ctx Context) Touch(path string) error {
-	ctx.Logger.Debug("> touch " + path)
+	ctx.Logger.Debug("→ touch " + path)
 	now := time.Now()
 	return os.Chtimes(path, now, now)
 }
