@@ -26,7 +26,7 @@ var (
 )
 
 // Expand ellipsis in any string in args
-func Expand(buildContext build.Context, logger slog.Interface, args ...string) []string {
+func Expand(buildContext *build.Context, logger slog.Interface, args ...string) []string {
 	args = importPathsNoDotExpansion(buildContext, args, logger)
 	var out []string
 	for _, a := range args {
@@ -45,7 +45,7 @@ func Expand(buildContext build.Context, logger slog.Interface, args ...string) [
 
 // importPathsNoDotExpansion returns the import paths to use for the given
 // command line, but it does no ... expansion.
-func importPathsNoDotExpansion(buildContext build.Context, args []string, logger slog.Interface) []string {
+func importPathsNoDotExpansion(buildContext *build.Context, args []string, logger slog.Interface) []string {
 	if len(args) == 0 {
 		return []string{"."}
 	}
@@ -80,7 +80,7 @@ func importPathsNoDotExpansion(buildContext build.Context, args []string, logger
 // under the $GOPATH directories and $GOROOT matching pattern.
 // The pattern is either "all" (all packages), "std" (standard packages),
 // "cmd" (standard commands), or a path including "...".
-func allPackages(buildContext build.Context, pattern string, logger slog.Interface) []string {
+func allPackages(buildContext *build.Context, pattern string, logger slog.Interface) []string {
 	pkgs := matchPackages(buildContext, pattern)
 	if len(pkgs) == 0 {
 		logger.WithField("pattern", pattern).Warn("matched no packages")
@@ -119,7 +119,7 @@ func hasPathPrefix(s, prefix string) bool {
 	}
 }
 
-func matchPackages(buildContext build.Context, pattern string) []string {
+func matchPackages(buildContext *build.Context, pattern string) []string {
 	match := func(string) bool { return true }
 	treeCanMatch := func(string) bool { return true }
 	if !isMetaPackage(pattern) {
@@ -222,7 +222,7 @@ func isMetaPackage(name string) bool {
 // allPackagesInFS is like allPackages but is passed a pattern
 // beginning ./ or ../, meaning it should scan the tree rooted
 // at the given directory. There are ... in the pattern too.
-func allPackagesInFS(buildContext build.Context, pattern string, logger slog.Interface) []string {
+func allPackagesInFS(buildContext *build.Context, pattern string, logger slog.Interface) []string {
 	pkgs := matchPackagesInFS(buildContext, pattern, logger)
 	if len(pkgs) == 0 {
 		logger.WithField("pattern", pattern).Warn("matched no packages")
@@ -230,7 +230,7 @@ func allPackagesInFS(buildContext build.Context, pattern string, logger slog.Int
 	return pkgs
 }
 
-func matchPackagesInFS(buildContext build.Context, pattern string, logger slog.Interface) []string {
+func matchPackagesInFS(buildContext *build.Context, pattern string, logger slog.Interface) []string {
 	// Find directory to begin the scan.
 	// Could be smarter but this one optimization
 	// is enough for now, since ... is usually at the

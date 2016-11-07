@@ -40,6 +40,7 @@ var subcommands = []cmd.Constructor{
 	// TODO(jrubin)
 	// install
 	// lint
+	// get
 	// test (with cache like gt)
 	// imports? (list non-std, not-in-project recursive imports of project)
 	// save? (copy imports to vendor/)
@@ -48,6 +49,12 @@ var subcommands = []cmd.Constructor{
 }
 
 func init() {
+	var err error
+	config.Cwd, err = os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	app.Name = "zb"
 	app.HideVersion = true
 	app.Version = "0.1.0"
@@ -83,14 +90,10 @@ func main() {
 	_ = app.Run(os.Args) // nosec
 }
 
-func setup(c *cli.Context) error {
-	var err error
-
+func setup(*cli.Context) error {
 	logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
 	})
-
-	config.Cwd, err = os.Getwd()
-	return err
+	return nil
 }

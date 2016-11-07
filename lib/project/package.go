@@ -1,14 +1,10 @@
 package project
 
 import (
-	"fmt"
 	"go/build"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"time"
 
-	"jrubin.io/slog"
+	"jrubin.io/zb/lib/dependency"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 // A Package is a single go Package
@@ -16,138 +12,76 @@ type Package struct {
 	*build.Package
 	*Project
 	IsVendored bool
+}
 
-	dependencies []Dependency
+func (pkg *Package) BuildPath() string {
+	return zbcontext.BuildPath(pkg.Project.Dir, pkg.Package)
+}
+
+func (pkg *Package) InstallPath() string {
+	return zbcontext.InstallPath(pkg.Package)
 }
 
 // Command returns the absolute path of the executable that this package generates
 // when it is built
-func (pkg *Package) Command() *InstallTarget {
+func (pkg *Package) BuildTarget() (*dependency.GoPackage, error) {
 	if !pkg.IsCommand() {
-		return nil
+		return pkg.InstallTarget()
 	}
 
-	file := filepath.Join(pkg.Project.Dir, filepath.Base(pkg.Package.Dir))
-	return &InstallTarget{
-		Path:    file,
-		Package: pkg,
-	}
-}
-
-func (pkg *Package) InstallTarget() *InstallTarget {
-	path := pkg.PkgObj
-
-	if pkg.IsCommand() {
-		path = filepath.Join(pkg.BinDir, filepath.Base(pkg.Package.Dir))
-	}
-
-	return &InstallTarget{
-		Path:    path,
-		Package: pkg,
-	}
-}
-
-func (pkg *Package) files(p *build.Package) []Dependency {
-	var files []string
-
-	files = append(files, p.GoFiles...)
-	files = append(files, p.CgoFiles...)
-	files = append(files, p.CFiles...)
-	files = append(files, p.CXXFiles...)
-	files = append(files, p.MFiles...)
-	files = append(files, p.HFiles...)
-	files = append(files, p.FFiles...)
-	files = append(files, p.SFiles...)
-	files = append(files, p.SwigFiles...)
-	files = append(files, p.SwigCXXFiles...)
-	files = append(files, p.SysoFiles...)
-	files = append(files, p.TestGoFiles...)
-	files = append(files, p.XTestGoFiles...)
-
-	gofiles := make([]Dependency, len(files))
-	for i, f := range files {
-		gofiles[i] = &GoFile{
-			Path:   filepath.Join(p.Dir, f),
-			Logger: pkg.Logger,
-		}
-	}
-
-	return gofiles
-}
-
-func (pkg *Package) testPackages() ([]*build.Package, error) {
-	var pkgs []*build.Package
-
-	for _, i := range append(pkg.TestImports, pkg.XTestImports...) {
-		p, err := pkg.BuildContext.Import(i, "", build.ImportComment)
-		if err != nil {
-			return nil, err
-		}
-		pkgs = append(pkgs, p)
-	}
-
-	return pkgs, nil
-}
-
-// list of files this package depends on to be built and tested
-func (pkg *Package) Dependencies() ([]Dependency, error) {
-	if pkg.dependencies != nil {
-		return pkg.dependencies, nil
-	}
-
-	// only include test imports for tests in this package
-	pkgs, err := pkg.testPackages()
+	hash, err := pkg.GitCommit()
 	if err != nil {
 		return nil, err
 	}
 
-	pkgs = append(pkgs, pkg.Package)
-
-	// unique list of imports
-	imports := map[string]struct{}{}
-	for _, p := range pkgs {
-		imports[p.ImportPath] = struct{}{}
-	}
-
-	for len(pkgs) > 0 {
-		// pop the front
-		p := pkgs[0]
-		pkgs = pkgs[1:]
-
-		// exclude standard packages
-		if !strings.Contains(p.ImportPath, ".") {
-			continue
-		}
-
-		pkg.dependencies = append(pkg.dependencies, pkg.files(p)...)
-
-		for _, i := range p.Imports {
-			if _, ok := imports[i]; ok {
-				// already loaded this import
-				continue
-			}
-
-			ip, err := pkg.BuildContext.Import(i, "", build.ImportComment)
-			if err != nil {
-				return nil, err
-			}
-
-			imports[i] = struct{}{}
-			pkgs = append(pkgs, ip)
-		}
-	}
-
-	return pkg.dependencies, nil
+	return &dependency.GoPackage{
+		ProjectImportPath: pkg.DirToImportPath(pkg.Project.Dir),
+		Path:              pkg.BuildPath(),
+		Package:           pkg.Package,
+		Context:           pkg.Context,
+		GitCommit:         hash,
+	}, nil
 }
 
-func (pkg *Package) Targets() ([]*Target, error) {
-	exe := pkg.Command()
-	if exe == nil {
-		return nil, nil
+func (pkg *Package) InstallTarget() (*dependency.GoPackage, error) {
+	hash, err := pkg.GitCommit()
+	if err != nil {
+		return nil, err
 	}
 
-	queue := []*Target{{Dependency: exe}}
-	var targets []*Target
+	return &dependency.GoPackage{
+		ProjectImportPath: pkg.DirToImportPath(pkg.Project.Dir),
+		Path:              pkg.InstallPath(),
+		Package:           pkg.Package,
+		Context:           pkg.Context,
+		GitCommit:         hash,
+	}, nil
+}
+
+type TargetType int
+
+const (
+	TargetBuild TargetType = iota
+	TargetInstall
+)
+
+func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
+	var fn func() (*dependency.GoPackage, error)
+
+	switch tt {
+	case TargetBuild:
+		fn = pkg.BuildTarget
+	case TargetInstall:
+		fn = pkg.InstallTarget
+	}
+
+	gopkg, err := fn()
+	if err != nil {
+		return nil, err
+	}
+
+	queue := []*dependency.Target{dependency.NewTarget(gopkg, nil)}
+	unique := dependency.Targets{}
 
 	// recursively add all dependencies
 	for len(queue) > 0 {
@@ -155,7 +89,9 @@ func (pkg *Package) Targets() ([]*Target, error) {
 		target := queue[0]
 		queue = queue[1:]
 
-		targets = append(targets, target)
+		if !unique.Insert(target) {
+			continue
+		}
 
 		deps, err := target.Dependencies()
 		if err != nil {
@@ -164,69 +100,9 @@ func (pkg *Package) Targets() ([]*Target, error) {
 
 		// append these dependencies to the queue
 		for _, dep := range deps {
-			targets = append(targets, &Target{
-				Dependency: dep,
-				Parent:     target,
-			})
+			queue = append(queue, dependency.NewTarget(dep, target))
 		}
 	}
 
-	return targets, nil
-}
-
-const dateFormat = "2006-01-02T15:04:05+00:00"
-
-func (pkg *Package) buildFlags() ([]string, error) {
-	if pkg.Name != "main" {
-		return pkg.BuildFlags, nil
-	}
-
-	for _, f := range pkg.BuildFlags {
-		if f == "-ldflags" {
-			// don't override explicitly proviede ldflags
-			return pkg.BuildFlags, nil
-		}
-	}
-
-	commit, err := pkg.GitCommit()
-	if err != nil {
-		return nil, err
-	}
-
-	ldflags := fmt.Sprintf("-X main.gitCommit=%s -X main.buildDate=%s",
-		commit,
-		time.Now().UTC().Format(dateFormat),
-	)
-
-	return append(pkg.BuildFlags, "-ldflags", ldflags), nil
-}
-
-func (pkg *Package) Build() error {
-	buildFlags, err := pkg.buildFlags()
-	if err != nil {
-		return err
-	}
-
-	args := []string{"build"}
-	args = append(args, buildFlags...)
-	args = append(args, "-o", pkg.Command().Name())
-	args = append(args, pkg.ImportPath)
-
-	line := "> go"
-	for _, a := range args {
-		if strings.Contains(a, " ") {
-			line += " '" + a + "'"
-		} else {
-			line += " " + a
-		}
-	}
-	pkg.Logger.Info(line)
-
-	writer := pkg.Logger.Writer(slog.InfoLevel).Prefix("< ")
-	defer writer.Close()
-
-	cmd := exec.Command("go", args...) // nosec
-	cmd.Stdout = writer
-	cmd.Stderr = writer
-	return cmd.Run()
+	return &unique, nil
 }

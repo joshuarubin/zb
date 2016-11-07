@@ -17,105 +17,107 @@ var (
 // BuildFlags are all the flags that are shared by the go build, clean, get,
 // install, list, run and test commands
 type BuildFlags struct {
-	a             bool
-	n             bool
-	p             int
-	race          bool
-	msan          bool
-	v             bool
-	work          bool
-	x             bool
-	asmflags      stringsFlag
-	buildmode     string
-	compiler      string
-	gccgoflags    stringsFlag
-	gcflags       stringsFlag
-	installsuffix string
-	ldflags       stringsFlag
-	linkshared    bool
-	pkgdir        string
-	tags          stringsFlag
-	toolexec      stringsFlag
+	A             bool
+	N             bool
+	P             int
+	Race          bool
+	Msan          bool
+	V             bool
+	Work          bool
+	X             bool
+	AsmFlags      stringsFlag
+	BuildMode     string
+	Compiler      string
+	GCCGoFlags    stringsFlag
+	GCFlags       stringsFlag
+	InstallSuffix string
+	LDFlags       stringsFlag
+	LinkShared    bool
+	PkgDir        string
+	Tags          stringsFlag
+	ToolExec      stringsFlag
+
+	context *build.Context
 }
 
-// Args returns strings suitable for passing to the go command line
-func (f *BuildFlags) Args() []string {
+// BuildArgs returns strings suitable for passing to the go command line
+func (f *BuildFlags) BuildArgs() []string {
 	var args []string
 
-	if f.a {
+	if f.A {
 		args = append(args, "-a")
 	}
 
-	if f.n {
+	if f.N {
 		args = append(args, "-n")
 	}
 
-	if f.p != defaultP {
-		args = append(args, "-p", fmt.Sprintf("%d", f.p))
+	if f.P != defaultP {
+		args = append(args, "-p", fmt.Sprintf("%d", f.P))
 	}
 
-	if f.race {
+	if f.Race {
 		args = append(args, "-race")
 	}
 
-	if f.msan {
+	if f.Msan {
 		args = append(args, "-msan")
 	}
 
-	if f.v {
+	if f.V {
 		args = append(args, "-v")
 	}
 
-	if f.work {
+	if f.Work {
 		args = append(args, "-work")
 	}
 
-	if f.x {
+	if f.X {
 		args = append(args, "-x")
 	}
 
-	if len(f.asmflags) > 0 {
-		args = append(args, "-asmflags", strings.Join(f.asmflags, " "))
+	if len(f.AsmFlags) > 0 {
+		args = append(args, "-asmflags", strings.Join(f.AsmFlags, " "))
 	}
 
-	if f.buildmode != defaultBuildmode {
-		args = append(args, "-buildmode", f.buildmode)
+	if f.BuildMode != defaultBuildmode {
+		args = append(args, "-buildmode", f.BuildMode)
 	}
 
-	if f.compiler != "" {
-		args = append(args, "-compiler", f.compiler)
+	if f.Compiler != "" {
+		args = append(args, "-compiler", f.Compiler)
 	}
 
-	if len(f.gccgoflags) > 0 {
-		args = append(args, "-gccgoflags", strings.Join(f.gccgoflags, " "))
+	if len(f.GCCGoFlags) > 0 {
+		args = append(args, "-gccgoflags", strings.Join(f.GCCGoFlags, " "))
 	}
 
-	if len(f.gcflags) > 0 {
-		args = append(args, "-gcflags", strings.Join(f.gcflags, " "))
+	if len(f.GCFlags) > 0 {
+		args = append(args, "-gcflags", strings.Join(f.GCFlags, " "))
 	}
 
-	if f.installsuffix != "" {
-		args = append(args, "-installsuffix", f.installsuffix)
+	if f.InstallSuffix != "" {
+		args = append(args, "-installsuffix", f.InstallSuffix)
 	}
 
-	if len(f.ldflags) > 0 {
-		args = append(args, "-ldflags", strings.Join(f.ldflags, " "))
+	if len(f.LDFlags) > 0 {
+		args = append(args, "-ldflags", strings.Join(f.LDFlags, " "))
 	}
 
-	if f.linkshared {
+	if f.LinkShared {
 		args = append(args, "-linkshared")
 	}
 
-	if f.pkgdir != "" {
-		args = append(args, "-pkgdir", f.pkgdir)
+	if f.PkgDir != "" {
+		args = append(args, "-pkgdir", f.PkgDir)
 	}
 
-	if len(f.tags) > 0 {
-		args = append(args, "-tags", strings.Join(f.tags, " "))
+	if len(f.Tags) > 0 {
+		args = append(args, "-tags", strings.Join(f.Tags, " "))
 	}
 
-	if len(f.toolexec) > 0 {
-		args = append(args, "-toolexec", strings.Join(f.toolexec, " "))
+	if len(f.ToolExec) > 0 {
+		args = append(args, "-toolexec", strings.Join(f.ToolExec, " "))
 	}
 
 	return args
@@ -123,17 +125,32 @@ func (f *BuildFlags) Args() []string {
 
 // BuildContext returns a build context based on environment variables GOARCH,
 // GOOS, GOROOT, GOPATH, CGO_ENABLED and command line flags
-func (f *BuildFlags) BuildContext() build.Context {
-	c := build.Default
-
-	if f.compiler != "" {
-		c.Compiler = f.compiler
+func (f *BuildFlags) BuildContext() *build.Context {
+	if f.context != nil {
+		return f.context
 	}
 
-	c.BuildTags = f.tags
-	c.InstallSuffix = f.installsuffix
+	c := build.Default
 
-	return c
+	if f.Compiler != "" {
+		c.Compiler = f.Compiler
+	}
+
+	c.BuildTags = f.Tags
+	c.InstallSuffix = f.InstallSuffix
+
+	f.context = &c
+
+	return f.context
+}
+
+func (f *BuildFlags) Import(path, srcDir string) (*build.Package, error) {
+	pkg, err := f.BuildContext().Import(path, srcDir, build.ImportComment)
+	if err != nil {
+		return nil, err
+	}
+
+	return pkg, nil
 }
 
 // Flags returns cli.Flags to use with cli.Command
@@ -141,14 +158,14 @@ func (f *BuildFlags) Flags() []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{
 			Name:        "a",
-			Destination: &f.a,
+			Destination: &f.A,
 			Usage: `
 
 			force rebuilding of packages that are already up-to-date.`,
 		},
 		cli.BoolFlag{
 			Name:        "n",
-			Destination: &f.n,
+			Destination: &f.N,
 			Usage: `
 			
 			print the commands but do not run them.`,
@@ -156,7 +173,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		cli.IntFlag{
 			Name:        "p",
 			Value:       defaultP,
-			Destination: &f.p,
+			Destination: &f.P,
 			Usage: `
 			
 			the number of programs, such as build commands or test binaries,
@@ -165,7 +182,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.BoolFlag{
 			Name:        "race",
-			Destination: &f.race,
+			Destination: &f.Race,
 			Usage: `
 
 			enable data race detection. Supported only on linux/amd64,
@@ -173,7 +190,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.BoolFlag{
 			Name:        "msan",
-			Destination: &f.msan,
+			Destination: &f.Msan,
 			Usage: `
 			
 			enable interoperation with memory sanitizer. Supported only on
@@ -181,14 +198,14 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.BoolFlag{
 			Name:        "v",
-			Destination: &f.v,
+			Destination: &f.V,
 			Usage: `
 			
 			print the names of packages as they are compiled.`,
 		},
 		cli.BoolFlag{
 			Name:        "work",
-			Destination: &f.work,
+			Destination: &f.Work,
 			Usage: `
 			
 			print the name of the temporary work directory and do not delete it
@@ -196,14 +213,14 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.BoolFlag{
 			Name:        "x",
-			Destination: &f.x,
+			Destination: &f.X,
 			Usage: `
 			
 			print the commands.`,
 		},
 		cli.GenericFlag{
 			Name:  "asmflags",
-			Value: &f.asmflags,
+			Value: &f.AsmFlags,
 			Usage: `
 			
 			arguments to pass on each go tool asm invocation.`,
@@ -211,35 +228,35 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		cli.StringFlag{
 			Name:        "buildmode",
 			Value:       defaultBuildmode,
-			Destination: &f.buildmode,
+			Destination: &f.BuildMode,
 			Usage: `
 			
 			build mode to use. See 'go help buildmode' for more.`,
 		},
 		cli.StringFlag{
 			Name:        "compiler",
-			Destination: &f.compiler,
+			Destination: &f.Compiler,
 			Usage: `
 			
 			name of compiler to use, as in runtime.Compiler (gccgo or gc).`,
 		},
 		cli.GenericFlag{
 			Name:  "gccgoflags",
-			Value: &f.gccgoflags,
+			Value: &f.GCCGoFlags,
 			Usage: `
 			
 			arguments to pass on each gccgo compiler/linker invocation.`,
 		},
 		cli.GenericFlag{
 			Name:  "gcflags",
-			Value: &f.gcflags,
+			Value: &f.GCFlags,
 			Usage: `
 			
 			arguments to pass on each go tool compile invocation.`,
 		},
 		cli.StringFlag{
 			Name:        "installsuffix",
-			Destination: &f.installsuffix,
+			Destination: &f.InstallSuffix,
 			Usage: `
 
 			a suffix to use in the name of the package installation directory,
@@ -251,14 +268,14 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.GenericFlag{
 			Name:  "ldflags",
-			Value: &f.ldflags,
+			Value: &f.LDFlags,
 			Usage: `
 			
 			arguments to pass on each go tool link invocation.`,
 		},
 		cli.BoolFlag{
 			Name:        "linkshared",
-			Destination: &f.linkshared,
+			Destination: &f.LinkShared,
 			Usage: `
 
 			link against shared libraries previously created with
@@ -266,7 +283,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:        "pkgdir",
-			Destination: &f.pkgdir,
+			Destination: &f.PkgDir,
 			Usage: `
 
 			install and load all packages from dir instead of the usual
@@ -276,7 +293,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.GenericFlag{
 			Name:  "tags",
-			Value: &f.tags,
+			Value: &f.Tags,
 			Usage: `
 
 			a list of build tags to consider satisfied during the build. For
@@ -285,7 +302,7 @@ func (f *BuildFlags) Flags() []cli.Flag {
 		},
 		cli.GenericFlag{
 			Name:  "toolexec",
-			Value: &f.toolexec,
+			Value: &f.ToolExec,
 			Usage: `
 
 			a program to use to invoke toolchain programs like vet and asm. For

@@ -1,90 +1,102 @@
 package project
 
 import (
-	"sort"
+	"go/build"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 
-	"jrubin.io/zb/lib/dag"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
-type Projects []*Project
-
-func (l *Projects) Len() int {
-	return len(*l)
-}
-
-func (l *Projects) Less(i, j int) bool {
-	return (*l)[i].Dir < (*l)[j].Dir
-}
-
-func (l *Projects) Swap(i, j int) {
-	(*l)[i], (*l)[j] = (*l)[j], (*l)[i]
-}
-
-func (l *Projects) Search(dir string) int {
-	return sort.Search(l.Len(), func(i int) bool {
-		return (*l)[i].Dir >= dir
-	})
-}
-
-func (l *Projects) Insert(p *Project) bool {
-	exists, i := l.Exists(p.Dir)
-	if exists {
-		return false
+// Projects lists the unique projects found by parsing the import paths in args
+func Projects(ctx zbcontext.Context, args ...string) (ProjectList, error) {
+	if len(args) == 0 {
+		args = append(args, ".")
 	}
 
-	*l = append(*l, nil)
-	copy((*l)[i+1:], (*l)[i:])
-	(*l)[i] = p
+	importPaths := ctx.ExpandEllipsis(args...)
 
-	return true
-}
+	var projects ProjectList
 
-func (l Projects) Exists(dir string) (bool, int) {
-	i := l.Search(dir)
-	return (i < l.Len() && l[i].Dir == dir), i
-}
+	// don't use range, using importPaths as a queue
+	for len(importPaths) > 0 {
+		// pop the queue
+		importPath := importPaths[0]
+		importPaths = importPaths[1:]
 
-type Target struct {
-	Dependency
-	Parent *Target
+		// convert local imports to import paths
+		if build.IsLocalImport(importPath) {
+			// convert relative path to absolute
+			if !filepath.IsAbs(importPath) {
+				importPath = filepath.Join(ctx.SrcDir, importPath)
+			}
 
-	node dag.Node
-}
+			if found := ctx.DirToImportPath(importPath); found != "" {
+				importPath = found
+			}
+		}
 
-func (l Projects) Targets() ([]*Target, error) {
-	// build a list of dependencies
-	graph := dag.Graph{}
+		if dir := ctx.ImportPathToDir(importPath); dir != "" {
+			if ok, _ := projects.Exists(dir); ok {
+				continue
+			}
+		}
 
-	// start with the final targets, the executables
-	for _, p := range l {
-		targets, err := p.Targets()
+		p, err := project(ctx, importPath)
+
+		if _, ok := err.(*build.NoGoError); ok && err != nil {
+			// no buildable source files in the given dir
+			// ok, as long as the project dir can still be found and at least
+			// one subdir of the project dir has go files
+			//
+			// importPath may still be relative too, but it is guaranteed not to
+			// have ellipsis
+
+			newImportPaths := ctx.NoGoImportPathToProjectImportPaths(importPath)
+			if len(newImportPaths) > 0 {
+				// add the new paths to the queue and ignore the error
+				importPaths = append(importPaths, newImportPaths...)
+				continue
+			}
+		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		for _, target := range targets {
-			target.node = graph.MakeNode(target)
-
-			if target.Parent != nil {
-				graph.MakeEdge(target.node, target.Parent.node)
+		if projects.Insert(p) {
+			if err = p.fillPackages(); err != nil {
+				return nil, err
 			}
 		}
 	}
 
-	var targets []*Target
+	return projects, nil
+}
 
-	// the graph now contains all possible dependencies
-	// sort it by dependency order
-	for _, node := range graph.TopologicalSort() {
-		target, ok := (*node.Value).(*Target)
-		if !ok {
-			return nil, errors.New("node was not a Target")
-		}
-
-		targets = append(targets, target)
+func project(ctx zbcontext.Context, importPath string) (*Project, error) {
+	pkg, err := ctx.Import(importPath, ctx.SrcDir)
+	if err != nil {
+		return nil, err
 	}
 
-	return targets, nil
+	pd := zbcontext.GitDir(pkg.Dir)
+	if pd == "" {
+		return nil, errors.Errorf("could not find project directory for: %s", pkg.Dir)
+	}
+
+	p := &Project{
+		Context:  ctx,
+		Dir:      pd,
+		Packages: make([]*Package, 1),
+	}
+
+	p.Packages[0] = &Package{
+		Package:    pkg,
+		Project:    p,
+		IsVendored: false, // TODO(jrubin)
+	}
+
+	return p, nil
 }

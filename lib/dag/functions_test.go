@@ -34,15 +34,15 @@ func setupTopologicalSort() (*Graph, []Node) {
 	graph := &Graph{}
 	var nodes []Node
 	// create graph on page 613 of CLRS ed. 3
-	nodes = append(nodes, graph.MakeNode()) // shirt
-	nodes = append(nodes, graph.MakeNode()) // tie
-	nodes = append(nodes, graph.MakeNode()) // jacket
-	nodes = append(nodes, graph.MakeNode()) // belt
-	nodes = append(nodes, graph.MakeNode()) // watch
-	nodes = append(nodes, graph.MakeNode()) // undershorts
-	nodes = append(nodes, graph.MakeNode()) // pants
-	nodes = append(nodes, graph.MakeNode()) // shoes
-	nodes = append(nodes, graph.MakeNode()) // socks
+	nodes = append(nodes, graph.MakeNode(nil)) // shirt
+	nodes = append(nodes, graph.MakeNode(nil)) // tie
+	nodes = append(nodes, graph.MakeNode(nil)) // jacket
+	nodes = append(nodes, graph.MakeNode(nil)) // belt
+	nodes = append(nodes, graph.MakeNode(nil)) // watch
+	nodes = append(nodes, graph.MakeNode(nil)) // undershorts
+	nodes = append(nodes, graph.MakeNode(nil)) // pants
+	nodes = append(nodes, graph.MakeNode(nil)) // shoes
+	nodes = append(nodes, graph.MakeNode(nil)) // socks
 	graph.MakeEdge(nodes[0], nodes[1])
 	graph.MakeEdge(nodes[1], nodes[2])
 	graph.MakeEdge(nodes[0], nodes[3])

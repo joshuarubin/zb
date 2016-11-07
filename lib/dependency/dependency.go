@@ -1,4 +1,4 @@
-package project
+package dependency
 
 import "time"
 
@@ -7,4 +7,5 @@ type Dependency interface {
 	Build() error
 	ModTime() time.Time
 	Dependencies() ([]Dependency, error)
+	Buildable() bool
 }

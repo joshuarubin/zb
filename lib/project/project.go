@@ -1,27 +1,25 @@
 package project
 
 import (
-	"go/build"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/core"
 
-	"jrubin.io/slog"
-	"jrubin.io/zb/lib/ellipsis"
+	"jrubin.io/zb/lib/dependency"
+	"jrubin.io/zb/lib/zbcontext"
 
 	"github.com/pkg/errors"
 )
 
 // A Project is a collection of Packages contained within a single repository
 type Project struct {
-	Dir           string
-	Packages      []*Package
-	BuildContext  build.Context
-	BuildFlags    []string
-	ExcludeVendor bool
-	Logger        *slog.Logger
+	zbcontext.Context
+	Dir      string
+	Packages []*Package
 
 	filled bool
 }
@@ -33,7 +31,7 @@ func (p *Project) fillPackages() error {
 
 	p.filled = true
 
-	base := dirToImportPath(p.BuildContext, p.Dir)
+	base := p.DirToImportPath(p.Dir)
 	if base == "" {
 		return errors.Errorf("could not find base import path for: %s", p.Dir)
 	}
@@ -43,9 +41,9 @@ func (p *Project) fillPackages() error {
 
 	list := (*packageList)(&p.Packages)
 
-	importPaths := ellipsis.Expand(p.BuildContext, p.Logger, filepath.Join(base, "..."))
+	importPaths := p.ExpandEllipsis(filepath.Join(base, "..."))
 	for _, importPath := range importPaths {
-		if dir := importPathToDir(p.BuildContext, importPath); dir != "" {
+		if dir := p.ImportPathToDir(importPath); dir != "" {
 			if ok, _ := list.Exists(dir); ok {
 				continue
 			}
@@ -58,7 +56,7 @@ func (p *Project) fillPackages() error {
 			continue
 		}
 
-		pkg, err := p.BuildContext.Import(importPath, "", build.ImportComment)
+		pkg, err := p.Import(importPath, "")
 		if err != nil {
 			return err
 		}
@@ -73,16 +71,25 @@ func (p *Project) fillPackages() error {
 	return nil
 }
 
-func (p *Project) Targets() ([]*Target, error) {
-	var targets []*Target
+func (p *Project) Targets(tt TargetType) (*dependency.Targets, error) {
+	unique := dependency.Targets{}
+	var group errgroup.Group
 	for _, pkg := range p.Packages {
-		t, err := pkg.Targets()
-		if err != nil {
-			return nil, err
-		}
-		targets = append(targets, t...)
+		pp := pkg
+		group.Go(func() error {
+			ts, err := pp.Targets(tt)
+			if err != nil {
+				return err
+			}
+
+			unique.Append(ts)
+			return nil
+		})
 	}
-	return targets, nil
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+	return &unique, nil
 }
 
 func (p *Project) GitCommit() (core.Hash, error) {

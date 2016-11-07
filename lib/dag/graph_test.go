@@ -41,7 +41,7 @@ func TestMakeNode(t *testing.T) {
 	graph := &Graph{}
 	nodes := make(map[Node]int, 0)
 	for i := 0; i < 10; i++ {
-		nodes[graph.MakeNode()] = i
+		nodes[graph.MakeNode(nil)] = i
 	}
 	graph.verify(t)
 }
@@ -50,7 +50,7 @@ func TestMakeEdge(t *testing.T) {
 	graph := &Graph{}
 	mapped := make(map[int]Node, 0)
 	for i := 0; i < 10; i++ {
-		mapped[i] = graph.MakeNode()
+		mapped[i] = graph.MakeNode(nil)
 	}
 	for j := 0; j < 5; j++ {
 		for i := 0; i < 10; i++ {

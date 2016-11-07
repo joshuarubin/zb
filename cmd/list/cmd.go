@@ -2,33 +2,33 @@ package list
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/project"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 // Cmd is the list command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	*cmd.Config
-	BuildFlags    buildflags.BuildFlags
-	ExcludeVendor bool
-	Context       *project.Context
+	zbcontext.Context
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+	cmd.Logger = config.Logger
+	cmd.SrcDir = config.Cwd
 
 	return cli.Command{
 		Name:      "list",
 		Usage:     "lists the packages in the repos of the packages named by the import paths, one per line.",
 		ArgsUsage: "[-vendor] [build flags] [packages]",
-		Before:    cmd.setup,
-		Action:    cmd.run,
-		Flags: append(cmd.BuildFlags.Flags(),
+		Action: func(c *cli.Context) error {
+			return cmd.run(c.App.Writer, c.Args()...)
+		},
+		Flags: append(cmd.Flags(),
 			cli.BoolFlag{
 				Name:        "vendor",
 				Usage:       "exclude vendor directories",
@@ -38,27 +38,15 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	}
 }
 
-func (cmd *cc) setup(c *cli.Context) error {
-	cmd.Context = &project.Context{
-		BuildContext:  cmd.BuildFlags.BuildContext(),
-		BuildFlags:    cmd.BuildFlags.Args(),
-		SrcDir:        cmd.Cwd,
-		Logger:        cmd.Logger,
-		ExcludeVendor: cmd.ExcludeVendor,
-	}
-
-	return nil
-}
-
-func (cmd *cc) run(c *cli.Context) error {
-	projects, err := cmd.Context.Projects(c.Args()...)
+func (cmd *cc) run(w io.Writer, args ...string) error {
+	projects, err := project.Projects(cmd.Context, args...)
 	if err != nil {
 		return err
 	}
 
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
-			fmt.Fprintln(c.App.Writer, pkg.ImportPath)
+			fmt.Fprintln(w, pkg.ImportPath)
 		}
 	}
 
