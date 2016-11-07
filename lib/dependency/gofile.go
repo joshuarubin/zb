@@ -27,23 +27,23 @@ type GoFile struct {
 	dependencies []Dependency
 }
 
-var gofileCache = map[string]*GoFile{}
-var gofileCacheMu sync.RWMutex
+var goFileCache = map[string]*GoFile{}
+var goFileCacheMu sync.RWMutex
 
 func NewGoFile(ctx zbcontext.Context, projectimportPath, path string) *GoFile {
-	gofileCacheMu.RLock()
+	goFileCacheMu.RLock()
 
-	if f, ok := gofileCache[path]; ok {
-		gofileCacheMu.RUnlock()
+	if f, ok := goFileCache[path]; ok {
+		goFileCacheMu.RUnlock()
 		return f
 	}
 
-	gofileCacheMu.RUnlock()
+	goFileCacheMu.RUnlock()
 
-	gofileCacheMu.Lock()
-	defer gofileCacheMu.Unlock()
+	goFileCacheMu.Lock()
+	defer goFileCacheMu.Unlock()
 
-	if f, ok := gofileCache[path]; ok {
+	if f, ok := goFileCache[path]; ok {
 		return f
 	}
 
@@ -53,16 +53,16 @@ func NewGoFile(ctx zbcontext.Context, projectimportPath, path string) *GoFile {
 		ProjectImportPath: projectimportPath,
 	}
 
-	gofileCache[path] = f
+	goFileCache[path] = f
 
 	return f
 }
 
-func (e GoFile) Name() string {
+func (e *GoFile) Name() string {
 	return e.Path
 }
 
-func (e GoFile) ModTime() time.Time {
+func (e *GoFile) ModTime() time.Time {
 	i, err := os.Stat(e.Path)
 	if err != nil {
 		return time.Time{}
@@ -372,16 +372,16 @@ func substitute(pattern, replacement, file string) string {
 	return ret
 }
 
-func (e GoFile) Buildable() bool {
+func (e *GoFile) Buildable() bool {
 	return false
 }
 
-func (e GoFile) Build() error {
+func (e *GoFile) Build() error {
 	// noop
 	return nil
 }
 
-func (e GoFile) Generate() error {
+func (e *GoFile) Generate() error {
 	args := []string{"generate"}
 	if e.GenerateRun != "" {
 		args = append(args, "-run", e.GenerateRun)
@@ -389,5 +389,6 @@ func (e GoFile) Generate() error {
 	args = append(args, e.BuildArgs()...)
 	args = append(args, e.Path)
 
-	return e.GoExec(args...)
+	err := e.GoExec(args...)
+	return err
 }

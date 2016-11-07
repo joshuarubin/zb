@@ -94,14 +94,23 @@ func (l ProjectList) TargetsEach(tt TargetType, fn func(*dependency.Target) erro
 	for _, t := range targets {
 		target := t
 
+		deps, err := target.Dependencies()
+		if err != nil {
+			return err
+		}
+
 		group.Go(func() error {
 			defer target.Done()
 
-			if !target.Buildable() {
+			if !target.Buildable() && len(deps) == 0 {
 				return nil
 			}
 
 			target.Wait()
+
+			if !target.Buildable() {
+				return nil
+			}
 
 			return fn(target)
 		})

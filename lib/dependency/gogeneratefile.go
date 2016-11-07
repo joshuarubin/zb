@@ -18,6 +18,18 @@ func (f GoGenerateFile) Name() string {
 }
 
 func (f GoGenerateFile) Build() error {
+	// with patsubst, multiple GoGenerateFiles may exist pointing to the same
+	// GoFile. we want to ensure that go generate only runs once in these cases.
+	// we lock the GoFile to ensure no concurrent go generates and once we have
+	// a lock, we recheck that it even needs to be run at all.
+
+	f.GoFile.mu.Lock()
+	defer f.GoFile.mu.Unlock()
+
+	if !f.Depends.ModTime().After(f.ModTime()) {
+		return nil
+	}
+
 	return f.GoFile.Generate()
 }
 
