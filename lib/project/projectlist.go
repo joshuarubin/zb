@@ -68,5 +68,44 @@ func (l ProjectList) Targets(tt TargetType) ([]*dependency.Target, error) {
 		return nil, err
 	}
 
-	return unique.TopologicalSort(), nil
+	targets := unique.TopologicalSort()
+
+	// set up the waitgroup dependencies
+	for _, t := range targets {
+		target := t
+
+		target.RequiredBy.Range(func(r *dependency.Target) {
+			r.Add(1)
+			target.OnDone(r.WaitGroup.Done)
+		})
+	}
+
+	return targets, nil
+}
+
+func (l ProjectList) TargetsEach(tt TargetType, fn func(*dependency.Target) error) error {
+	targets, err := l.Targets(tt)
+	if err != nil {
+		return err
+	}
+
+	var group errgroup.Group
+
+	for _, t := range targets {
+		target := t
+
+		group.Go(func() error {
+			defer target.Done()
+
+			if !target.Buildable() {
+				return nil
+			}
+
+			target.Wait()
+
+			return fn(target)
+		})
+	}
+
+	return group.Wait()
 }

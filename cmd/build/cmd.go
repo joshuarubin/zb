@@ -3,8 +3,6 @@ package build
 import (
 	"sync/atomic"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/dependency"
@@ -53,61 +51,34 @@ func (cmd *cc) run(args ...string) error {
 		return err
 	}
 
-	targets, err := projects.Targets(project.TargetBuild)
-	if err != nil {
-		return err
-	}
-
-	// set up the waitgroup dependencies
-	for _, t := range targets {
-		target := t
-
-		target.RequiredBy.Range(func(r *dependency.Target) {
-			r.Add(1)
-			target.OnDone(r.WaitGroup.Done)
-		})
-	}
-
 	var built uint32
-	var group errgroup.Group
-
-	for _, t := range targets {
-		target := t
-
-		deps, err := target.Dependencies()
+	err = projects.TargetsEach(project.TargetBuild, func(target *dependency.Target) error {
+		var deps []dependency.Dependency
+		deps, err = target.Dependencies()
 		if err != nil {
 			return err
 		}
 
-		group.Go(func() error {
-			defer target.Done()
-			target.Wait()
-
-			if !target.Buildable() {
-				return nil
+		// build target if any of its dependencies are newer than itself
+		for _, dep := range deps {
+			// don't use .Before since filesystem time resolution might
+			// cause files times to be within the same second
+			if !dep.ModTime().After(target.ModTime()) {
+				continue
 			}
 
-			// build target if any of its dependencies are newer than itself
-			for _, dep := range deps {
-				// don't use .Before since filesystem time resolution might
-				// cause files times to be within the same second
-				if !dep.ModTime().After(target.ModTime()) {
-					continue
-				}
-
-				if err := target.Build(); err != nil {
-					return err
-				}
-
-				atomic.AddUint32(&built, 1)
-				return nil
+			if err = target.Build(); err != nil {
+				return err
 			}
 
+			atomic.AddUint32(&built, 1)
 			return nil
-		})
-	}
+		}
 
-	if err := group.Wait(); err != nil {
+		return nil
+	})
+
+	if err != nil {
 		return err
 	}
 
