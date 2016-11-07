@@ -3,6 +3,7 @@ package dependency
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,6 +41,11 @@ func isZBGenerate(buf []byte) bool {
 		bytes.HasPrefix(buf, []byte("//zb:generate\t"))
 }
 
+func isTodoOrFixme(buf []byte) bool {
+	return bytes.Contains(buf, []byte(strings.ToUpper("todo"))) ||
+		bytes.Contains(buf, []byte(strings.ToUpper("fixme")))
+}
+
 func (e *GoFile) Dependencies() ([]Dependency, error) {
 	if e.dependencies != nil {
 		return e.dependencies, nil
@@ -60,7 +66,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 	// which are likely to appear when using generate.
 	input := bufio.NewReader(file)
 	// One line per loop.
-	for {
+	for i := 1; ; i++ {
 		var buf []byte
 		buf, err = input.ReadSlice('\n')
 		if err == bufio.ErrBufferFull {
@@ -83,6 +89,15 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 				err = io.ErrUnexpectedEOF
 			}
 			break
+		}
+
+		// TODO(jrubin) this is a bad way to check for a vendored package
+		if !strings.Contains(e.Path, "/vendor/") && isTodoOrFixme(buf) {
+			e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
+				e.Path,
+				i,
+				strings.TrimSpace(string(buf)),
+			))
 		}
 
 		if !isZBGenerate(buf) {

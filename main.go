@@ -45,7 +45,6 @@ var subcommands = []cmd.Constructor{
 	// imports? (list non-std, not-in-project recursive imports of project)
 	// save? (copy imports to vendor/)
 	// list out of date vendor imports?
-	// build (others?) should show TODO/FIXME comments
 }
 
 func init() {
