@@ -17,10 +17,14 @@ import (
 // Context for package related commands
 type Context struct {
 	buildflags.BuildFlags
+	buildflags.TestFlags
 	SrcDir        string
 	ExcludeVendor bool
 	Logger        *slog.Logger
 	GenerateRun   string
+	Timing        bool
+	Force         bool
+	List          bool
 }
 
 func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {

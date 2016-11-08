@@ -13,6 +13,7 @@ import (
 	"jrubin.io/zb/cmd/complete"
 	"jrubin.io/zb/cmd/install"
 	"jrubin.io/zb/cmd/list"
+	"jrubin.io/zb/cmd/test"
 	"jrubin.io/zb/cmd/version"
 )
 
@@ -39,9 +40,8 @@ var subcommands = []cmd.Constructor{
 	complete.Cmd,
 	build.Cmd,
 	install.Cmd,
+	test.Cmd,
 	// TODO(jrubin) lint
-	// TODO(jrubin) get
-	// TODO(jrubin) test (with cache like gt)
 	// TODO(jrubin) clean
 	// TODO(jrubin) run
 }
@@ -83,7 +83,6 @@ func init() {
 		if c.BashComplete == nil {
 			c.BashComplete = cmd.BashCommandComplete(c)
 		}
-
 		app.Commands = append(app.Commands, c)
 	}
 }

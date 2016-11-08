@@ -29,7 +29,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
 		},
-		Flags: cmd.Flags(),
+		Flags: cmd.BuildFlags.Flags(),
 	}
 }
 

@@ -28,7 +28,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
 		},
-		Flags: append(cmd.Flags(),
+		Flags: append(cmd.BuildFlags.Flags(),
 			cli.BoolFlag{
 				Name:        "vendor",
 				Usage:       "exclude vendor directories",
