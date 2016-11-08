@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
@@ -32,12 +33,13 @@ type TestFlags struct {
 	Short            bool
 	Timeout          time.Duration
 	Trace            string
+	V                bool
 }
 
 // TODO(jrubin) default values
 
 func (f *TestFlags) Flags() []cli.Flag {
-	return []cli.Flag{
+	flags := []cli.Flag{
 		cli.BoolFlag{
 			Name:        "c",
 			Destination: &f.C,
@@ -171,8 +173,47 @@ func (f *TestFlags) Flags() []cli.Flag {
 			Destination: &f.Trace,
 			// TODO(jrubin)
 		},
-		// TODO(jrubin) "v" flag
 	}
+
+	l := len(flags)
+	for i := 0; i < l; i++ {
+		switch f := flags[i].(type) {
+		case cli.BoolFlag:
+			flags = append(flags, cli.BoolFlag{
+				Name:        "test." + f.Name,
+				Destination: f.Destination,
+				Hidden:      true,
+			})
+		case cli.StringFlag:
+			flags = append(flags, cli.StringFlag{
+				Name:        "test." + f.Name,
+				Destination: f.Destination,
+				Hidden:      true,
+			})
+		case cli.DurationFlag:
+			flags = append(flags, cli.DurationFlag{
+				Name:        "test." + f.Name,
+				Destination: f.Destination,
+				Hidden:      true,
+			})
+		case cli.IntFlag:
+			flags = append(flags, cli.IntFlag{
+				Name:        "test." + f.Name,
+				Destination: f.Destination,
+				Hidden:      true,
+			})
+		default:
+			panic(errors.Errorf("invalid flag type: %T", f))
+		}
+	}
+
+	flags = append(flags, cli.BoolFlag{
+		Name:        "test.v",
+		Destination: &f.V,
+		Hidden:      true,
+	})
+
+	return flags
 }
 
 /*
@@ -291,7 +332,7 @@ func (f *TestFlags) Flags() []cli.Flag {
 	    text from Log and Logf calls even if the test succeeds.
 */
 
-func (f *TestFlags) TestArgs(v bool) []string {
+func (f *TestFlags) TestArgs() []string {
 	var args []string
 
 	if f.C {
@@ -390,8 +431,8 @@ func (f *TestFlags) TestArgs(v bool) []string {
 		args = append(args, "-trace", f.Trace)
 	}
 
-	if v {
-		args = append(args, "-v")
+	if f.V {
+		args = append(args, "-test.v")
 	}
 
 	return args
