@@ -10,8 +10,6 @@ import (
 	"jrubin.io/zb/lib/zbcontext"
 )
 
-// TODO(jrubin) automatically add missing imports to vendor/
-
 // Cmd is the build command
 var Cmd cmd.Constructor = &cc{}
 

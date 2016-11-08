@@ -41,9 +41,8 @@ var subcommands = []cmd.Constructor{
 	// TODO(jrubin) lint
 	// TODO(jrubin) get
 	// TODO(jrubin) test (with cache like gt)
-	// TODO(jrubin) imports? (list non-std, not-in-project recursive imports of project)
-	// TODO(jrubin) save? (copy imports to vendor/)
-	// TODO(jrubin) list out of date vendor imports?
+	// TODO(jrubin) clean
+	// TODO(jrubin) run
 }
 
 func init() {

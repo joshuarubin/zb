@@ -49,7 +49,6 @@ func (p *Project) fillPackages() error {
 			}
 		}
 
-		// TODO(jrubin) this isn't a very accurate check
 		isVendored := strings.Contains(importPath, "/vendor/")
 
 		if p.ExcludeVendor && isVendored {
