@@ -2,6 +2,7 @@ package project
 
 import (
 	"sort"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 
@@ -12,14 +13,6 @@ type ProjectList []*Project
 
 func (l *ProjectList) Len() int {
 	return len(*l)
-}
-
-func (l *ProjectList) Less(i, j int) bool {
-	return (*l)[i].Dir < (*l)[j].Dir
-}
-
-func (l *ProjectList) Swap(i, j int) {
-	(*l)[i], (*l)[j] = (*l)[j], (*l)[i]
 }
 
 func (l *ProjectList) Search(dir string) int {
@@ -117,4 +110,33 @@ func (l ProjectList) TargetsEach(tt TargetType, fn func(*dependency.Target) erro
 	}
 
 	return group.Wait()
+}
+
+func (l ProjectList) Build(tt TargetType) (int, error) {
+	var built uint32
+	err := l.TargetsEach(tt, func(target *dependency.Target) error {
+		deps, err := target.Dependencies()
+		if err != nil {
+			return err
+		}
+
+		// build target if any of its dependencies are newer than itself
+		for _, dep := range deps {
+			// don't use .Before since filesystem time resolution might
+			// cause files times to be within the same second
+			if !dep.ModTime().After(target.ModTime()) {
+				continue
+			}
+
+			if err = target.Build(); err != nil {
+				return err
+			}
+
+			atomic.AddUint32(&built, 1)
+			return nil
+		}
+
+		return nil
+	})
+	return int(built), err
 }

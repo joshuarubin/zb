@@ -24,14 +24,9 @@ func (pkg *Package) InstallPath() string {
 
 // Command returns the absolute path of the executable that this package generates
 // when it is built
-func (pkg *Package) BuildTarget() (*dependency.GoPackage, error) {
+func (pkg *Package) BuildTarget() *dependency.GoPackage {
 	if !pkg.IsCommand() {
 		return pkg.InstallTarget()
-	}
-
-	hash, err := pkg.GitCommit()
-	if err != nil {
-		return nil, err
 	}
 
 	return &dependency.GoPackage{
@@ -39,23 +34,18 @@ func (pkg *Package) BuildTarget() (*dependency.GoPackage, error) {
 		Path:              pkg.BuildPath(),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         hash,
-	}, nil
+		GitCommit:         pkg.GitCommit(),
+	}
 }
 
-func (pkg *Package) InstallTarget() (*dependency.GoPackage, error) {
-	hash, err := pkg.GitCommit()
-	if err != nil {
-		return nil, err
-	}
-
+func (pkg *Package) InstallTarget() *dependency.GoPackage {
 	return &dependency.GoPackage{
 		ProjectImportPath: pkg.DirToImportPath(pkg.Project.Dir),
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         hash,
-	}, nil
+		GitCommit:         pkg.GitCommit(),
+	}
 }
 
 type TargetType int
@@ -66,7 +56,7 @@ const (
 )
 
 func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
-	var fn func() (*dependency.GoPackage, error)
+	var fn func() *dependency.GoPackage
 
 	switch tt {
 	case TargetBuild:
@@ -75,10 +65,7 @@ func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
 		fn = pkg.InstallTarget
 	}
 
-	gopkg, err := fn()
-	if err != nil {
-		return nil, err
-	}
+	gopkg := fn()
 
 	queue := []*dependency.Target{dependency.NewTarget(gopkg, nil)}
 	unique := dependency.Targets{}

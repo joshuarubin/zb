@@ -91,18 +91,20 @@ func (p *Project) Targets(tt TargetType) (*dependency.Targets, error) {
 	return &unique, nil
 }
 
-func (p *Project) GitCommit() (core.Hash, error) {
+func (p *Project) GitCommit() core.Hash {
 	dir := filepath.Join(p.Dir, ".git")
 
 	repo, err := git.NewFilesystemRepository(dir)
 	if err != nil {
-		return core.Hash{}, err
+		p.Logger.WithError(err).Warn("could not determine git commit")
+		return core.Hash{}
 	}
 
 	head, err := repo.Head()
 	if err != nil {
-		return core.Hash{}, err
+		p.Logger.WithError(err).Warn("could not determine git commit")
+		return core.Hash{}
 	}
 
-	return head.Hash(), nil
+	return head.Hash()
 }

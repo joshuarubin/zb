@@ -1,4 +1,4 @@
-package build
+package install
 
 import (
 	"github.com/urfave/cli"
@@ -7,7 +7,7 @@ import (
 	"jrubin.io/zb/lib/zbcontext"
 )
 
-// Cmd is the build command
+// Cmd is the install command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
@@ -19,8 +19,8 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.SrcDir = config.Cwd
 
 	return cli.Command{
-		Name:      "build",
-		Usage:     "build all of the packages in each of the projects",
+		Name:      "install",
+		Usage:     "compile and install all of the packages in each of the projects",
 		ArgsUsage: "[build flags] [packages]",
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.Args()...)
@@ -46,13 +46,13 @@ func (cmd *cc) run(args ...string) error {
 		return err
 	}
 
-	built, err := projects.Build(project.TargetBuild)
+	built, err := projects.Build(project.TargetInstall)
 	if err != nil {
 		return err
 	}
 
 	if built == 0 {
-		cmd.Logger.Info("nothing to build")
+		cmd.Logger.Info("nothing to install")
 	}
 
 	return nil

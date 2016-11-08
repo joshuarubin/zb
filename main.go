@@ -1,4 +1,4 @@
-package main
+package main // import "jrubin.io/zb"
 
 import (
 	"os"
@@ -11,6 +11,7 @@ import (
 	"jrubin.io/zb/cmd/build"
 	"jrubin.io/zb/cmd/commands"
 	"jrubin.io/zb/cmd/complete"
+	"jrubin.io/zb/cmd/install"
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/version"
 )
@@ -37,7 +38,7 @@ var subcommands = []cmd.Constructor{
 	commands.Cmd,
 	complete.Cmd,
 	build.Cmd,
-	// TODO(jrubin) install
+	install.Cmd,
 	// TODO(jrubin) lint
 	// TODO(jrubin) get
 	// TODO(jrubin) test (with cache like gt)
@@ -58,7 +59,10 @@ func init() {
 	app.Usage = "an opinionated repo based build tool"
 	app.EnableBashCompletion = true
 	app.BashComplete = cmd.BashComplete
-	app.Before = setup
+	app.Before = func(*cli.Context) error {
+		setup()
+		return nil
+	}
 	app.Authors = []cli.Author{
 		{Name: "Joshua Rubin", Email: "joshua@rubixconsulting.com"},
 	}
@@ -79,6 +83,7 @@ func init() {
 		if c.BashComplete == nil {
 			c.BashComplete = cmd.BashCommandComplete(c)
 		}
+
 		app.Commands = append(app.Commands, c)
 	}
 }
@@ -87,7 +92,7 @@ func main() {
 	_ = app.Run(os.Args) // nosec
 }
 
-func setup(*cli.Context) error {
+func setup() error {
 	logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
