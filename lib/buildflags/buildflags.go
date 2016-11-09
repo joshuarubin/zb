@@ -5,6 +5,9 @@ import (
 	"go/build"
 	"runtime"
 	"strings"
+	"time"
+
+	"gopkg.in/src-d/go-git.v4/core"
 
 	"github.com/urfave/cli"
 )
@@ -14,9 +17,9 @@ var (
 	defaultBuildmode = "default"
 )
 
-// BuildFlags are all the flags that are shared by the go build, clean, get,
+// BuildFlagsData are all the flags that are shared by the go build, clean, get,
 // install, list, run and test commands
-type BuildFlags struct {
+type BuildFlagsData struct {
 	A             bool
 	N             bool
 	P             int
@@ -40,8 +43,10 @@ type BuildFlags struct {
 	context *build.Context
 }
 
+const dateFormat = "2006-01-02T15:04:05+00:00"
+
 // BuildArgs returns strings suitable for passing to the go command line
-func (f *BuildFlags) BuildArgs() []string {
+func (f *BuildFlagsData) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 	var args []string
 
 	if f.A {
@@ -52,7 +57,7 @@ func (f *BuildFlags) BuildArgs() []string {
 		args = append(args, "-n")
 	}
 
-	if f.P != defaultP {
+	if f.P != 0 && f.P != defaultP {
 		args = append(args, "-p", fmt.Sprintf("%d", f.P))
 	}
 
@@ -80,7 +85,7 @@ func (f *BuildFlags) BuildArgs() []string {
 		args = append(args, "-asmflags", strings.Join(f.AsmFlags, " "))
 	}
 
-	if f.BuildMode != defaultBuildmode {
+	if f.BuildMode != "" && f.BuildMode != defaultBuildmode {
 		args = append(args, "-buildmode", f.BuildMode)
 	}
 
@@ -102,6 +107,13 @@ func (f *BuildFlags) BuildArgs() []string {
 
 	if len(f.LDFlags) > 0 {
 		args = append(args, "-ldflags", strings.Join(f.LDFlags, " "))
+	} else if pkg != nil && pkg.IsCommand() && gitCommit != nil {
+		args = append(args, "-ldflags",
+			fmt.Sprintf("-X main.gitCommit=%s -X main.buildDate=%s",
+				*gitCommit,
+				time.Now().UTC().Format(dateFormat),
+			),
+		)
 	}
 
 	if f.LinkShared {
@@ -125,7 +137,7 @@ func (f *BuildFlags) BuildArgs() []string {
 
 // BuildContext returns a build context based on environment variables GOARCH,
 // GOOS, GOROOT, GOPATH, CGO_ENABLED and command line flags
-func (f *BuildFlags) BuildContext() *build.Context {
+func (f *BuildFlagsData) BuildContext() *build.Context {
 	if f.context != nil {
 		return f.context
 	}
@@ -144,8 +156,8 @@ func (f *BuildFlags) BuildContext() *build.Context {
 	return f.context
 }
 
-// Flags returns cli.Flags to use with cli.Command
-func (f *BuildFlags) Flags() []cli.Flag {
+// BuildFlagsData returns cli.Flags to use with cli.Command
+func (f *BuildFlagsData) BuildFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{
 			Name:        "a",

@@ -2,15 +2,23 @@ package buildflags
 
 import (
 	"fmt"
+	"go/build"
+	"os"
+	"runtime"
+	"strings"
 	"time"
+
+	"gopkg.in/src-d/go-git.v4/core"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 
-type TestFlags struct {
+type TestFlagsData struct {
+	BuildFlagsData
+
 	C                bool
-	Exec             string
+	Exec             stringsFlag
 	I                bool
 	O                string
 	Bench            string
@@ -36,9 +44,24 @@ type TestFlags struct {
 	V                bool
 }
 
-// TODO(jrubin) default values
+var (
+	defaultBenchTime = 1 * time.Second
+	defaultCount     = 1
+	defaultCPU       = fmt.Sprintf("%d", runtime.GOMAXPROCS(-1))
+	defaultOutputDir string
+	defaultParallel  = runtime.GOMAXPROCS(-1)
+	defaultTimeout   = 10 * time.Minute
+)
 
-func (f *TestFlags) Flags() []cli.Flag {
+func init() {
+	var err error
+	defaultOutputDir, err = os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (f *TestFlagsData) TestFlags() []cli.Flag {
 	flags := []cli.Flag{
 		cli.BoolFlag{
 			Name:        "c",
@@ -49,9 +72,9 @@ func (f *TestFlags) Flags() []cli.Flag {
 			the last element of the package's import path). The file name can be
 			changed with the -o flag.`,
 		},
-		cli.StringFlag{
-			Name:        "exec",
-			Destination: &f.Exec,
+		cli.GenericFlag{
+			Name:  "exec",
+			Value: &f.Exec,
 			Usage: `
 
 			Run the test binary using xprog. The behavior is the same as in 'go
@@ -76,102 +99,193 @@ func (f *TestFlags) Flags() []cli.Flag {
 		cli.StringFlag{
 			Name:        "bench",
 			Destination: &f.Bench,
-			// TODO(jrubin)
+			Usage: `
+
+			Run (sub)benchmarks matching a regular expression. The given regular
+			expression is split into smaller ones by top-level '/', where each
+			must match the corresponding part of a benchmark's identifier. By
+			default, no benchmarks run. To run all benchmarks, use '-bench .' or
+			'-bench=.'.`,
 		},
 		cli.BoolFlag{
 			Name:        "benchmem",
 			Destination: &f.BenchMem,
-			// TODO(jrubin)
+			Usage: `
+
+			Print memory allocation statistics for benchmarks.`,
 		},
 		cli.DurationFlag{
 			Name:        "benchtime",
 			Destination: &f.BenchTime,
-			// TODO(jrubin)
+			Value:       defaultBenchTime,
+			Usage: `
+
+			Run enough iterations of each benchmark to take t, specified as a
+			time.Duration (for example, -benchtime 1h30s).`,
 		},
 		cli.StringFlag{
 			Name:        "blockprofile",
 			Destination: &f.BlockProfile,
-			// TODO(jrubin)
+			Usage: `
+
+			Write a goroutine blocking profile to the specified file when all
+			tests are complete. Writes test binary as -c would.`,
 		},
 		cli.IntFlag{
 			Name:        "blockprofilerate",
 			Destination: &f.BlockProfileRate,
-			// TODO(jrubin)
+			Usage: `
+
+			Control the detail provided in goroutine blocking profiles by
+			calling runtime.SetBlockProfileRate with n. See 'go doc
+			runtime.SetBlockProfileRate'. The profiler aims to sample, on
+			average, one blocking event every n nanoseconds the program spends
+			blocked.  By default, if -test.blockprofile is set without this
+			flag, all blocking events are recorded, equivalent to
+			-test.blockprofilerate=1.`,
 		},
 		cli.IntFlag{
 			Name:        "count",
 			Destination: &f.Count,
-			// TODO(jrubin)
+			Value:       defaultCount,
+			Usage: `
+
+			Run each test and benchmark n times (default 1). If -cpu is set, run
+			n times for each GOMAXPROCS value. Examples are always run once.`,
 		},
 		cli.BoolFlag{
 			Name:        "cover",
 			Destination: &f.Cover,
-			// TODO(jrubin)
+			Usage: `
+
+			Enable coverage analysis.`,
 		},
 		cli.StringFlag{
 			Name:        "covermode",
 			Destination: &f.CoverMode,
-			// TODO(jrubin)
+			Usage: `
+
+			Set the mode for coverage analysis for the package[s] being tested.
+			The default is "set" unless -race is enabled, in which case it is
+			"atomic".
+			The values:
+			set:    bool: does this statement run?
+			count:  int: how many times does this statement run?
+			atomic: int: count, but correct in multithreaded tests;
+			        significantly more expensive.
+			Sets -cover.`,
 		},
 		cli.StringFlag{
 			Name:        "coverpkg",
 			Destination: &f.CoverPkg,
-			// TODO(jrubin)
+			Usage: `
+
+			Apply coverage analysis in each test to the given list of packages.
+			The default is for each test to analyze only the package being
+			tested. Packages are specified as import paths. Sets -cover.`,
 		},
 		cli.StringFlag{
 			Name:        "coverprofile",
 			Destination: &f.CoverProfile,
-			// TODO(jrubin)
+			Usage: `
+
+			Write a coverage profile to the file after all tests have passed.
+			Sets -cover.`,
 		},
 		cli.StringFlag{
 			Name:        "cpu",
 			Destination: &f.CPU,
-			// TODO(jrubin)
+			Value:       defaultCPU,
+			Usage: `
+
+			Specify a list of GOMAXPROCS values for which the tests or
+			benchmarks should be executed.  The default is the current value of
+			GOMAXPROCS.`,
 		},
 		cli.StringFlag{
 			Name:        "cpuprofile",
 			Destination: &f.CPUProfile,
-			// TODO(jrubin)
+			Usage: `
+
+			Write a CPU profile to the specified file before exiting. Writes
+			test binary as -c would.`,
 		},
 		cli.StringFlag{
 			Name:        "memprofile",
 			Destination: &f.MemProfile,
-			// TODO(jrubin)
+			Usage: `
+
+			Write a memory profile to the file after all tests have passed.
+			Writes test binary as -c would.`,
 		},
 		cli.IntFlag{
 			Name:        "memprofilerate",
 			Destination: &f.MemProfileRate,
-			// TODO(jrubin)
+			Usage: `
+
+			Enable more precise (and expensive) memory profiles by setting
+			runtime.MemProfileRate.  See 'go doc runtime.MemProfileRate'. To
+			profile all memory allocations, use -test.memprofilerate=1 and pass
+			--alloc_space flag to the pprof tool.`,
 		},
 		cli.StringFlag{
 			Name:        "outputdir",
 			Destination: &f.OutputDir,
-			// TODO(jrubin)
+			Value:       defaultOutputDir,
+			Usage: `
+
+			Place output files from profiling in the specified directory, by
+			default the directory in which "go test" is running.`,
 		},
 		cli.IntFlag{
 			Name:        "parallel",
 			Destination: &f.Parallel,
-			// TODO(jrubin)
+			Value:       defaultParallel,
+			Usage: `
+
+			Allow parallel execution of test functions that call t.Parallel. The
+			value of this flag is the maximum number of tests to run
+			simultaneously; by default, it is set to the value of GOMAXPROCS.
+			Note that -parallel only applies within a single test binary. The
+			'go test' command may run tests for different packages in parallel
+			as well, according to the setting of the -p flag (see 'go help
+			build').`,
 		},
 		cli.StringFlag{
 			Name:        "run",
 			Destination: &f.Run,
-			// TODO(jrubin)
+			Usage: `
+
+			Run only those tests and examples matching the regular expression.
+			For tests the regular expression is split into smaller ones by
+			top-level '/', where each must match the corresponding part of a
+			test's identifier.`,
 		},
 		cli.BoolFlag{
 			Name:        "short",
 			Destination: &f.Short,
-			// TODO(jrubin)
+			Usage: `
+
+			Tell long-running tests to shorten their run time.
+			It is off by default but set during all.bash so that installing
+			the Go tree can run a sanity check but not spend time running
+			exhaustive tests.`,
 		},
 		cli.DurationFlag{
 			Name:        "timeout",
 			Destination: &f.Timeout,
-			// TODO(jrubin)
+			Value:       defaultTimeout,
+			Usage: `
+
+			If a test runs longer than t, panic.
+			The default is 10 minutes (10m).`,
 		},
 		cli.StringFlag{
 			Name:        "trace",
 			Destination: &f.Trace,
-			// TODO(jrubin)
+			Usage: `
+
+			Write an execution trace to the specified file before exiting.`,
 		},
 	}
 
@@ -202,6 +316,13 @@ func (f *TestFlags) Flags() []cli.Flag {
 				Destination: f.Destination,
 				Hidden:      true,
 			})
+		case cli.GenericFlag:
+			flags = append(flags, cli.GenericFlag{
+				Name:   "test." + f.Name,
+				Value:  f.Value,
+				Usage:  f.Usage,
+				Hidden: true,
+			})
 		default:
 			panic(errors.Errorf("invalid flag type: %T", f))
 		}
@@ -213,134 +334,18 @@ func (f *TestFlags) Flags() []cli.Flag {
 		Hidden:      true,
 	})
 
-	return flags
+	return append(f.BuildFlags(), flags...)
 }
 
-/*
-	-bench regexp
-	    Run (sub)benchmarks matching a regular expression.
-	    The given regular expression is split into smaller ones by
-	    top-level '/', where each must match the corresponding part of a
-	    benchmark's identifier.
-	    By default, no benchmarks run. To run all benchmarks,
-	    use '-bench .' or '-bench=.'.
-
-	-benchmem
-	    Print memory allocation statistics for benchmarks.
-
-	-benchtime t
-	    Run enough iterations of each benchmark to take t, specified
-	    as a time.Duration (for example, -benchtime 1h30s).
-	    The default is 1 second (1s).
-
-	-blockprofile block.out
-	    Write a goroutine blocking profile to the specified file
-	    when all tests are complete.
-	    Writes test binary as -c would.
-
-	-blockprofilerate n
-	    Control the detail provided in goroutine blocking profiles by
-	    calling runtime.SetBlockProfileRate with n.
-	    See 'go doc runtime.SetBlockProfileRate'.
-	    The profiler aims to sample, on average, one blocking event every
-	    n nanoseconds the program spends blocked.  By default,
-	    if -test.blockprofile is set without this flag, all blocking events
-	    are recorded, equivalent to -test.blockprofilerate=1.
-
-	-count n
-	    Run each test and benchmark n times (default 1).
-	    If -cpu is set, run n times for each GOMAXPROCS value.
-	    Examples are always run once.
-
-	-cover
-	    Enable coverage analysis.
-
-	-covermode set,count,atomic
-	    Set the mode for coverage analysis for the package[s]
-	    being tested. The default is "set" unless -race is enabled,
-	    in which case it is "atomic".
-	    The values:
-		set: bool: does this statement run?
-		count: int: how many times does this statement run?
-		atomic: int: count, but correct in multithreaded tests;
-			significantly more expensive.
-	    Sets -cover.
-
-	-coverpkg pkg1,pkg2,pkg3
-	    Apply coverage analysis in each test to the given list of packages.
-	    The default is for each test to analyze only the package being tested.
-	    Packages are specified as import paths.
-	    Sets -cover.
-
-	-coverprofile cover.out
-	    Write a coverage profile to the file after all tests have passed.
-	    Sets -cover.
-
-	-cpu 1,2,4
-	    Specify a list of GOMAXPROCS values for which the tests or
-	    benchmarks should be executed.  The default is the current value
-	    of GOMAXPROCS.
-
-	-cpuprofile cpu.out
-	    Write a CPU profile to the specified file before exiting.
-	    Writes test binary as -c would.
-
-	-memprofile mem.out
-	    Write a memory profile to the file after all tests have passed.
-	    Writes test binary as -c would.
-
-	-memprofilerate n
-	    Enable more precise (and expensive) memory profiles by setting
-	    runtime.MemProfileRate.  See 'go doc runtime.MemProfileRate'.
-	    To profile all memory allocations, use -test.memprofilerate=1
-	    and pass --alloc_space flag to the pprof tool.
-
-	-outputdir directory
-	    Place output files from profiling in the specified directory,
-	    by default the directory in which "go test" is running.
-
-	-parallel n
-	    Allow parallel execution of test functions that call t.Parallel.
-	    The value of this flag is the maximum number of tests to run
-	    simultaneously; by default, it is set to the value of GOMAXPROCS.
-	    Note that -parallel only applies within a single test binary.
-	    The 'go test' command may run tests for different packages
-	    in parallel as well, according to the setting of the -p flag
-	    (see 'go help build').
-
-	-run regexp
-	    Run only those tests and examples matching the regular expression.
-	    For tests the regular expression is split into smaller ones by
-	    top-level '/', where each must match the corresponding part of a
-	    test's identifier.
-
-	-short
-	    Tell long-running tests to shorten their run time.
-	    It is off by default but set during all.bash so that installing
-	    the Go tree can run a sanity check but not spend time running
-	    exhaustive tests.
-
-	-timeout t
-	    If a test runs longer than t, panic.
-	    The default is 10 minutes (10m).
-
-	-trace trace.out
-	    Write an execution trace to the specified file before exiting.
-
-	-v
-	    Verbose output: log all tests as they are run. Also print all
-	    text from Log and Logf calls even if the test succeeds.
-*/
-
-func (f *TestFlags) TestArgs() []string {
-	var args []string
+func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *core.Hash) []string {
+	args := f.BuildArgs(pkg, gitCommit)
 
 	if f.C {
 		args = append(args, "-c")
 	}
 
-	if f.Exec != "" {
-		args = append(args, "-exec", f.Exec)
+	if len(f.Exec) > 0 {
+		args = append(args, "-exec", strings.Join(f.Exec, " "))
 	}
 
 	if f.I {
@@ -359,7 +364,7 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-benchmem")
 	}
 
-	if f.BenchTime > 0 {
+	if f.BenchTime != 0 && f.BenchTime != defaultBenchTime {
 		args = append(args, "-benchtime", f.BenchTime.String())
 	}
 
@@ -371,7 +376,7 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-blockprofilerate", fmt.Sprintf("%d", f.BlockProfileRate))
 	}
 
-	if f.Count != 0 {
+	if f.Count != 0 && f.Count != defaultCount {
 		args = append(args, "-count", fmt.Sprintf("%d", f.Count))
 	}
 
@@ -391,7 +396,7 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-coverprofile", f.CoverProfile)
 	}
 
-	if f.CPU != "" {
+	if f.CPU != "" && f.CPU != defaultCPU {
 		args = append(args, "-cpu", f.CPU)
 	}
 
@@ -407,11 +412,11 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-memprofilerate", fmt.Sprintf("%d", f.MemProfileRate))
 	}
 
-	if f.OutputDir != "" {
+	if f.OutputDir != "" && f.OutputDir != defaultOutputDir {
 		args = append(args, "-outputdir", f.OutputDir)
 	}
 
-	if f.Parallel > 0 {
+	if f.Parallel != 0 && f.Parallel != defaultParallel {
 		args = append(args, "-parallel", fmt.Sprintf("%d", f.Parallel))
 	}
 
@@ -423,7 +428,7 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-short")
 	}
 
-	if f.Timeout > 0 {
+	if f.Timeout != 0 && f.Timeout != defaultTimeout {
 		args = append(args, "-timeout", f.Timeout.String())
 	}
 
@@ -431,7 +436,7 @@ func (f *TestFlags) TestArgs() []string {
 		args = append(args, "-trace", f.Trace)
 	}
 
-	if f.V {
+	if f.BuildFlagsData.V || f.V {
 		args = append(args, "-test.v")
 	}
 

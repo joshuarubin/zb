@@ -3,7 +3,6 @@ package project
 import (
 	"go/build"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -96,7 +95,7 @@ func project(ctx zbcontext.Context, importPath string) (*Project, error) {
 	p.Packages[0] = &Package{
 		Package:    pkg,
 		Project:    p,
-		IsVendored: strings.Contains(pkg.Dir, "/vendor/"),
+		IsVendored: false,
 	}
 
 	return p, nil

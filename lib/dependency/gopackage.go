@@ -1,7 +1,6 @@
 package dependency
 
 import (
-	"fmt"
 	"go/build"
 	"os"
 	"path/filepath"
@@ -31,26 +30,6 @@ func (pkg GoPackage) Name() string {
 
 const dateFormat = "2006-01-02T15:04:05+00:00"
 
-func (pkg GoPackage) buildFlags() ([]string, error) {
-	args := pkg.BuildArgs()
-
-	if !pkg.IsCommand() {
-		return args, nil
-	}
-
-	if len(pkg.BuildFlags.LDFlags) > 0 {
-		// don't override explicitly proviede ldflags
-		return args, nil
-	}
-
-	ldflags := fmt.Sprintf("-X main.gitCommit=%s -X main.buildDate=%s",
-		pkg.GitCommit,
-		time.Now().UTC().Format(dateFormat),
-	)
-
-	return append(args, "-ldflags", ldflags), nil
-}
-
 func quoteCommand(command string, args []string) string {
 	for _, a := range args {
 		if strings.Contains(a, " ") {
@@ -66,13 +45,8 @@ func (pkg GoPackage) Build() error {
 		return pkg.Install()
 	}
 
-	buildFlags, err := pkg.buildFlags()
-	if err != nil {
-		return err
-	}
-
 	args := []string{"build"}
-	args = append(args, buildFlags...)
+	args = append(args, pkg.BuildArgs(pkg.Package, &pkg.GitCommit)...)
 	args = append(args, "-o", pkg.Name())
 	args = append(args, pkg.ImportPath)
 
@@ -87,13 +61,8 @@ func (pkg GoPackage) Build() error {
 }
 
 func (pkg GoPackage) Install() error {
-	buildFlags, err := pkg.buildFlags()
-	if err != nil {
-		return err
-	}
-
 	args := []string{"install"}
-	args = append(args, buildFlags...)
+	args = append(args, pkg.BuildArgs(pkg.Package, &pkg.GitCommit)...)
 	args = append(args, pkg.ImportPath)
 
 	if err := pkg.GoExec(args...); err != nil {
@@ -144,11 +113,6 @@ func (pkg GoPackage) packages() ([]Dependency, error) {
 
 	for _, i := range imports {
 		if i == "C" {
-			continue
-		}
-
-		if !strings.Contains(i, ".") {
-			// don't import standard packages
 			continue
 		}
 

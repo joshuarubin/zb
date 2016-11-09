@@ -25,7 +25,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.Args()...)
 		},
-		Flags: append(cmd.BuildFlags.Flags(),
+		Flags: append(cmd.BuildFlags(),
 			cli.StringFlag{
 				Name: "run",
 				Usage: `

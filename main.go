@@ -44,6 +44,7 @@ var subcommands = []cmd.Constructor{
 	// TODO(jrubin) lint
 	// TODO(jrubin) clean
 	// TODO(jrubin) run
+	// TODO(jrubin) get (whole repo)
 }
 
 func init() {

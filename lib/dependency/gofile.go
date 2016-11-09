@@ -386,7 +386,7 @@ func (e *GoFile) Generate() error {
 	if e.GenerateRun != "" {
 		args = append(args, "-run", e.GenerateRun)
 	}
-	args = append(args, e.BuildArgs()...)
+	args = append(args, e.BuildArgs(nil, nil)...)
 	args = append(args, e.Path)
 
 	err := e.GoExec(args...)

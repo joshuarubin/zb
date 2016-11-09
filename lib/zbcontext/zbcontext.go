@@ -16,13 +16,11 @@ import (
 
 // Context for package related commands
 type Context struct {
-	buildflags.BuildFlags
-	buildflags.TestFlags
+	buildflags.TestFlagsData
 	SrcDir        string
 	ExcludeVendor bool
 	Logger        *slog.Logger
 	GenerateRun   string
-	Timing        bool
 	Force         bool
 	List          bool
 }
