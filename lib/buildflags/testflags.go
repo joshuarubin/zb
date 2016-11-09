@@ -150,8 +150,8 @@ func (f *TestFlagsData) TestFlags() []cli.Flag {
 			Value:       defaultCount,
 			Usage: `
 
-			Run each test and benchmark n times (default 1). If -cpu is set, run
-			n times for each GOMAXPROCS value. Examples are always run once.`,
+			Run each test and benchmark n times. If -cpu is set, run n times for
+			each GOMAXPROCS value. Examples are always run once.`,
 		},
 		cli.BoolFlag{
 			Name:        "cover",
@@ -277,8 +277,7 @@ func (f *TestFlagsData) TestFlags() []cli.Flag {
 			Value:       defaultTimeout,
 			Usage: `
 
-			If a test runs longer than t, panic.
-			The default is 10 minutes (10m).`,
+			If a test runs longer than t, panic.`,
 		},
 		cli.StringFlag{
 			Name:        "trace",
@@ -436,7 +435,7 @@ func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *core.Hash) []str
 		args = append(args, "-trace", f.Trace)
 	}
 
-	if f.BuildFlagsData.V || f.V {
+	if !f.BuildFlagsData.V && f.V {
 		args = append(args, "-test.v")
 	}
 

@@ -49,22 +49,16 @@ func (p *Project) fillPackages() error {
 			}
 		}
 
-		isVendored := strings.Contains(importPath, "/vendor/")
-
-		if p.ExcludeVendor && isVendored {
-			continue
-		}
-
-		pkg, err := p.Import(importPath, p.Dir)
+		pkg, err := p.newPackage(importPath, p.Dir, true)
 		if err != nil {
 			return err
 		}
 
-		list.Insert(&Package{
-			Package:    pkg,
-			Project:    p,
-			IsVendored: isVendored,
-		})
+		if p.ExcludeVendor && pkg.IsVendored {
+			continue
+		}
+
+		list.Insert(pkg)
 	}
 
 	return nil
@@ -107,4 +101,30 @@ func (p *Project) GitCommit() core.Hash {
 	}
 
 	return head.Hash()
+}
+
+var cache = map[string]*Package{}
+
+func (p *Project) newPackage(importPath, srcDir string, includeTestImports bool) (*Package, error) {
+	if pkg, ok := cache[importPath]; ok {
+		return pkg, nil
+	}
+
+	pkg, err := p.Import(importPath, srcDir)
+	if err != nil {
+		return nil, err
+	}
+
+	isVendored := strings.Contains(pkg.ImportPath, "vendor/")
+
+	ret := &Package{
+		Package:            pkg,
+		Project:            p,
+		IsVendored:         isVendored,
+		includeTestImports: !isVendored && includeTestImports,
+	}
+
+	cache[importPath] = ret
+
+	return ret, nil
 }

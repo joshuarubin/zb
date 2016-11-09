@@ -76,27 +76,22 @@ func Projects(ctx zbcontext.Context, args ...string) (ProjectList, error) {
 }
 
 func project(ctx zbcontext.Context, importPath string) (*Project, error) {
-	pkg, err := ctx.Import(importPath, ctx.SrcDir)
+	p := &Project{
+		Context:  ctx,
+		Packages: make([]*Package, 1),
+	}
+
+	pkg, err := p.newPackage(importPath, ctx.SrcDir, true)
 	if err != nil {
 		return nil, err
 	}
 
-	pd := zbcontext.GitDir(pkg.Dir)
-	if pd == "" {
-		return nil, errors.Errorf("could not find project directory for: %s", pkg.Dir)
+	p.Dir = zbcontext.GitDir(pkg.Package.Dir)
+	if p.Dir == "" {
+		return nil, errors.Errorf("could not find project directory for: %s", pkg.Package.Dir)
 	}
 
-	p := &Project{
-		Context:  ctx,
-		Dir:      pd,
-		Packages: make([]*Package, 1),
-	}
-
-	p.Packages[0] = &Package{
-		Package:    pkg,
-		Project:    p,
-		IsVendored: false,
-	}
+	p.Packages[0] = pkg
 
 	return p, nil
 }

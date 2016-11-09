@@ -139,7 +139,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 
 		base := e.Context.ImportPathToDir(e.ProjectImportPath)
 		if strings.HasPrefix(e.Path, base) &&
-			!strings.Contains(e.Path, "/vendor/") &&
+			!strings.Contains(e.Path, "vendor/") &&
 			isTodoOrFixme(buf) {
 			e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
 				strings.TrimPrefix(e.Path, base+"/"),

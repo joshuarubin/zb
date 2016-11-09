@@ -1,13 +1,18 @@
 package zbcontext
 
 import (
+	"bytes"
 	"go/build"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
+	"github.com/urfave/cli"
 
 	"jrubin.io/slog"
 	"jrubin.io/zb/lib/buildflags"
@@ -66,7 +71,7 @@ func (ctx *Context) DirToImportPath(dir string) string {
 	return ""
 }
 
-func quoteCommand(command string, args []string) string {
+func QuoteCommand(command string, args []string) string {
 	for _, a := range args {
 		if strings.Contains(a, " ") {
 			a = strconv.Quote(a)
@@ -77,15 +82,73 @@ func quoteCommand(command string, args []string) string {
 }
 
 func (ctx Context) GoExec(args ...string) error {
-	ctx.Logger.Info(quoteCommand("→ go", args))
+	ctx.Logger.Info(QuoteCommand("→ go", args))
 
-	writer := ctx.Logger.Writer(slog.InfoLevel).Prefix("← ")
-	defer writer.Close()
-
+	var buf bytes.Buffer
 	cmd := exec.Command("go", args...) // nosec
-	cmd.Stdout = writer
-	cmd.Stderr = writer
-	return cmd.Run()
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	code, err := ExitCode(cmd.Run())
+	if err != nil {
+		return err
+	}
+
+	level := slog.InfoLevel
+	if code != ExitOK {
+		level = slog.ErrorLevel
+	}
+	w := ctx.Logger.Writer(level).Prefix("← ")
+	defer w.Close()
+
+	if _, err = io.Copy(w, &buf); err != nil {
+		return err
+	}
+
+	if code != ExitOK {
+		return cli.NewExitError("", code)
+	}
+
+	return nil
+}
+
+const (
+	ExitOK = iota
+	ExitFailed
+	ExitSignaled = 98 + iota
+	ExitStopped
+	ExitContinued
+	ExitCoreDump
+)
+
+func ExitCode(err error) (int, error) {
+	if err == nil {
+		return ExitOK, nil
+	}
+
+	eerr, ok := err.(*exec.ExitError)
+	if !ok {
+		return 0, err
+	}
+
+	status, ok := eerr.Sys().(syscall.WaitStatus)
+	if !ok {
+		return 0, err
+	}
+
+	switch {
+	case status.Exited():
+		return status.ExitStatus(), nil
+	case status.Signaled():
+		return ExitSignaled, nil
+	case status.Stopped():
+		return ExitStopped, nil
+	case status.Continued():
+		return ExitContinued, nil
+	case status.CoreDump():
+		return ExitCoreDump, nil
+	}
+
+	return 0, err
 }
 
 func (ctx Context) Touch(path string) error {
