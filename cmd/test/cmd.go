@@ -31,6 +31,7 @@ type cc struct {
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Logger = config.Logger
 	cmd.SrcDir = config.Cwd
+	cmd.NoWarnTodoFixme = &config.NoWarnTodoFixme
 
 	return cli.Command{
 		Name:      "test",
@@ -78,7 +79,7 @@ func (cmd *cc) setup() error {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,6 @@ func (cmd *cc) buildLists(projects project.ProjectList) (pkgs, toRun project.Pac
 func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 	var ecmd *exec.Cmd
 	pr, pw := io.Pipe()
-	r := bufio.NewReader(pr)
 	if len(toRun) > 0 {
 		if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
 			return err
@@ -180,6 +180,8 @@ func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 
 	ow := cmd.Logger.Writer(slog.InfoLevel)
 	defer ow.Close()
+
+	r := bufio.NewReader(pr)
 
 	for _, pkg := range pkgs {
 		if len(toRun) > 0 && toRun[0] == pkg {

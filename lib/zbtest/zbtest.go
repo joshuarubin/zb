@@ -87,8 +87,7 @@ func (t *ZBTest) ReadResult(ow, ew io.Writer, r StringReader, p *project.Package
 
 	defer func(w *io.Writer) { obuf.WriteTo(*w) }(&w)
 
-	var eof bool
-	for !eof {
+	for eof := false; !eof; {
 		line, err := r.ReadString('\n')
 		obuf.WriteString(line)
 		if err == io.EOF {

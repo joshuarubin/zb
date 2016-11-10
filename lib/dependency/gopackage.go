@@ -14,7 +14,7 @@ import (
 
 type GoPackage struct {
 	*build.Package
-	zbcontext.Context
+	*zbcontext.Context
 	Path              string
 	GitCommit         core.Hash
 	ProjectImportPath string

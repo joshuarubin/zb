@@ -39,7 +39,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
 		return err
 	}

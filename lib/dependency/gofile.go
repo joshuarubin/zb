@@ -19,7 +19,7 @@ import (
 var _ Dependency = (*GoFile)(nil)
 
 type GoFile struct {
-	zbcontext.Context
+	*zbcontext.Context
 	Path              string
 	ProjectImportPath string
 
@@ -30,7 +30,7 @@ type GoFile struct {
 var goFileCache = map[string]*GoFile{}
 var goFileCacheMu sync.RWMutex
 
-func NewGoFile(ctx zbcontext.Context, projectimportPath, path string) *GoFile {
+func NewGoFile(ctx *zbcontext.Context, projectimportPath, path string) *GoFile {
 	goFileCacheMu.RLock()
 
 	if f, ok := goFileCache[path]; ok {
@@ -137,15 +137,17 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			break
 		}
 
-		base := e.Context.ImportPathToDir(e.ProjectImportPath)
-		if strings.HasPrefix(e.Path, base) &&
-			!strings.Contains(e.Path, "vendor/") &&
-			isTodoOrFixme(buf) {
-			e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
-				strings.TrimPrefix(e.Path, base+"/"),
-				i,
-				strings.TrimSpace(string(buf)),
-			))
+		if e.NoWarnTodoFixme != nil && !*e.NoWarnTodoFixme {
+			base := e.Context.ImportPathToDir(e.ProjectImportPath)
+			if strings.HasPrefix(e.Path, base) &&
+				!strings.Contains(e.Path, "vendor/") &&
+				isTodoOrFixme(buf) {
+				e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
+					strings.TrimPrefix(e.Path, base+"/"),
+					i,
+					strings.TrimSpace(string(buf)),
+				))
+			}
 		}
 
 		if !isZBGenerate(buf) {

@@ -17,6 +17,7 @@ type cc struct {
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Logger = config.Logger
 	cmd.SrcDir = config.Cwd
+	cmd.NoWarnTodoFixme = &config.NoWarnTodoFixme
 
 	return cli.Command{
 		Name:      "build",
@@ -41,7 +42,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
 		return err
 	}

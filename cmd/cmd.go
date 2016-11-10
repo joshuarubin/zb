@@ -13,6 +13,7 @@ type Config struct {
 	Logger               *slog.Logger
 	Cwd                  string
 	GitCommit, BuildDate *string
+	NoWarnTodoFixme      bool
 }
 
 // Constructor returns a cli.Command

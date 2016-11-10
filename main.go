@@ -2,6 +2,7 @@ package main // import "jrubin.io/zb"
 
 import (
 	"os"
+	"strings"
 
 	"github.com/urfave/cli"
 
@@ -13,10 +14,14 @@ import (
 	"jrubin.io/zb/cmd/commands"
 	"jrubin.io/zb/cmd/complete"
 	"jrubin.io/zb/cmd/install"
+	"jrubin.io/zb/cmd/lint"
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/test"
 	"jrubin.io/zb/cmd/version"
 )
+
+// TODO(jrubin) fix all lint issues
+// TODO(jrubin) test all the things
 
 var (
 	// populated by zb build ldflags
@@ -35,17 +40,15 @@ var (
 )
 
 var subcommands = []cmd.Constructor{
-	version.Cmd,
-	list.Cmd,
+	build.Cmd,
+	clean.Cmd,
 	commands.Cmd,
 	complete.Cmd,
-	build.Cmd,
 	install.Cmd,
+	lint.Cmd,
+	list.Cmd,
 	test.Cmd,
-	clean.Cmd,
-	// TODO(jrubin) lint
-	// TODO(jrubin) run
-	// TODO(jrubin) get (whole repo)
+	version.Cmd,
 }
 
 func init() {
@@ -75,6 +78,12 @@ func init() {
 			Usage:  "set log level (DEBUG, INFO, WARN, ERROR)",
 			Value:  &level,
 		},
+		cli.BoolFlag{
+			Name:        "no-warn-todo-fixme",
+			EnvVar:      strings.ToUpper("no_warn_todo_fixme"),
+			Usage:       "do not warn when finding " + strings.ToUpper("warn") + " or " + strings.ToUpper("fixme") + " in .go files",
+			Destination: &config.NoWarnTodoFixme,
+		},
 	}
 
 	for _, sc := range subcommands {
@@ -93,10 +102,9 @@ func main() {
 	_ = app.Run(os.Args) // nosec
 }
 
-func setup() error {
+func setup() {
 	logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
 	})
-	return nil
 }

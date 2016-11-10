@@ -17,17 +17,20 @@ import (
 	"jrubin.io/slog"
 	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/ellipsis"
+	"jrubin.io/zb/lib/lintflags"
 )
 
 // Context for package related commands
 type Context struct {
 	buildflags.TestFlagsData
-	SrcDir        string
-	ExcludeVendor bool
-	Logger        *slog.Logger
-	GenerateRun   string
-	Force         bool
-	List          bool
+	lintflags.LintFlagsData
+	SrcDir          string
+	ExcludeVendor   bool
+	Logger          *slog.Logger
+	GenerateRun     string
+	Force           bool
+	List            bool
+	NoWarnTodoFixme *bool
 }
 
 func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
@@ -81,7 +84,7 @@ func QuoteCommand(command string, args []string) string {
 	return command
 }
 
-func (ctx Context) GoExec(args ...string) error {
+func (ctx *Context) GoExec(args ...string) error {
 	ctx.Logger.Info(QuoteCommand("→ go", args))
 
 	var buf bytes.Buffer
@@ -151,13 +154,13 @@ func ExitCode(err error) (int, error) {
 	return 0, err
 }
 
-func (ctx Context) Touch(path string) error {
+func (ctx *Context) Touch(path string) error {
 	now := time.Now()
-	ctx.Logger.WithField("path", path).Debug("touch")
+	// ctx.Logger.WithField("path", path).Debug("touch")
 	return os.Chtimes(path, now, now)
 }
 
-func (ctx Context) ImportPathToProjectDir(importPath string) string {
+func (ctx *Context) ImportPathToProjectDir(importPath string) string {
 	dir := ctx.ImportPathToDir(importPath)
 	if dir == "" {
 		return ""
