@@ -10,14 +10,14 @@ import (
 )
 
 // Projects lists the unique projects found by parsing the import paths in args
-func Projects(ctx *zbcontext.Context, args ...string) (ProjectList, error) {
+func Projects(ctx *zbcontext.Context, args ...string) (List, error) {
 	if len(args) == 0 {
 		args = append(args, ".")
 	}
 
 	importPaths := ctx.ExpandEllipsis(args...)
 
-	var projects ProjectList
+	var projects List
 
 	// don't use range, using importPaths as a queue
 	for len(importPaths) > 0 {

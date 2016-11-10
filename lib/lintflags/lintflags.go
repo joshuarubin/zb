@@ -25,7 +25,7 @@ var (
 	// defaultFormat         = "{{.Path}}:{{.Line}}:{{if .Col}}{{.Col}}{{end}}:{{.Severity}}: {{.Message}} ({{.Linter}})"
 )
 
-type LintFlagsData struct {
+type Data struct {
 	NoVendoredLinters bool
 	Fast              bool
 	Install           bool
@@ -61,7 +61,7 @@ type LintFlagsData struct {
 	// Format           string
 }
 
-func (f *LintFlagsData) LintFlags() []cli.Flag {
+func (f *Data) LintFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{
 			Name:        "no-vendored-linters",
@@ -287,7 +287,7 @@ const (
 	enable  = "-E"
 )
 
-func (f *LintFlagsData) linters() []string {
+func (f *Data) linters() []string {
 	// relevant flags:
 	// --enable
 	// --disable
@@ -337,7 +337,7 @@ func (f *LintFlagsData) linters() []string {
 	return args
 }
 
-func (f *LintFlagsData) LintArgs() []string {
+func (f *Data) LintArgs() []string {
 	var args []string
 
 	if f.NoVendoredLinters {

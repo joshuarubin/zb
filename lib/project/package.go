@@ -54,8 +54,8 @@ func (pkg *Package) InstallPath() string {
 	return zbcontext.InstallPath(pkg.Package)
 }
 
-// Command returns the absolute path of the executable that this package generates
-// when it is built
+// BuildTarget returns the absolute path of the binary that this package
+// generates when it is built
 func (pkg *Package) BuildTarget() *dependency.GoPackage {
 	if !pkg.IsCommand() {
 		return pkg.InstallTarget()
@@ -129,8 +129,9 @@ func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
 	return &unique, nil
 }
 
-// sorted, recursive
 func (pkg *Package) Deps() ([]*Package, error) {
+	// sorted, recursive
+
 	if pkg.depsBuilt {
 		return pkg.deps, nil
 	}
@@ -202,7 +203,7 @@ func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 		fmt.Fprintf(h, "-short\n")
 	}
 
-	if flag.V || flag.BuildFlagsData.V {
+	if flag.V || flag.Data.V {
 		fmt.Fprintf(h, "-v\n")
 	}
 

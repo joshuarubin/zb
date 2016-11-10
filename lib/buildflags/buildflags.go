@@ -17,9 +17,9 @@ var (
 	defaultBuildmode = "default"
 )
 
-// BuildFlagsData are all the flags that are shared by the go build, clean, get,
-// install, list, run and test commands
-type BuildFlagsData struct {
+// Data are all the flags that are shared by the go build, clean, get, install,
+// list, run and test commands
+type Data struct {
 	A             bool
 	N             bool
 	P             int
@@ -46,7 +46,7 @@ type BuildFlagsData struct {
 const dateFormat = "2006-01-02T15:04:05+00:00"
 
 // BuildArgs returns strings suitable for passing to the go command line
-func (f *BuildFlagsData) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
+func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 	var args []string
 
 	if f.A {
@@ -137,7 +137,7 @@ func (f *BuildFlagsData) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []s
 
 // BuildContext returns a build context based on environment variables GOARCH,
 // GOOS, GOROOT, GOPATH, CGO_ENABLED and command line flags
-func (f *BuildFlagsData) BuildContext() *build.Context {
+func (f *Data) BuildContext() *build.Context {
 	if f.context != nil {
 		return f.context
 	}
@@ -156,8 +156,8 @@ func (f *BuildFlagsData) BuildContext() *build.Context {
 	return f.context
 }
 
-// BuildFlagsData returns cli.Flags to use with cli.Command
-func (f *BuildFlagsData) BuildFlags() []cli.Flag {
+// BuildFlags returns cli.Flags to use with cli.Command
+func (f *Data) BuildFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.BoolFlag{
 			Name:        "a",

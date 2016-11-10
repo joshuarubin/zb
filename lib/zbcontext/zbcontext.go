@@ -23,7 +23,7 @@ import (
 // Context for package related commands
 type Context struct {
 	buildflags.TestFlagsData
-	lintflags.LintFlagsData
+	lintflags.Data
 	SrcDir          string
 	ExcludeVendor   bool
 	Logger          *slog.Logger
@@ -168,8 +168,9 @@ func (ctx *Context) ImportPathToProjectDir(importPath string) string {
 	return GitDir(dir)
 }
 
-// can't handle ellipsis (...), but does not require .go files to exist either
 func (ctx *Context) ImportPathToDir(importPath string) string {
+	// can't handle ellipsis (...), but does not require .go files to exist either
+
 	for _, srcDir := range ctx.BuildContext().SrcDirs() {
 		dir := filepath.Join(srcDir, importPath)
 		info, err := os.Stat(dir)

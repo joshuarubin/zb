@@ -4,7 +4,6 @@ import (
 	"go/build"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -26,18 +25,6 @@ var _ Dependency = (*GoPackage)(nil)
 
 func (pkg GoPackage) Name() string {
 	return pkg.Path
-}
-
-const dateFormat = "2006-01-02T15:04:05+00:00"
-
-func quoteCommand(command string, args []string) string {
-	for _, a := range args {
-		if strings.Contains(a, " ") {
-			a = strconv.Quote(a)
-		}
-		command += " " + a
-	}
-	return command
 }
 
 func (pkg GoPackage) Build() error {

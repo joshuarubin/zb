@@ -104,7 +104,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	return cmd.runOneTest(w, pkgs, toRun)
 }
 
-func (cmd *cc) buildLists(projects project.ProjectList) (pkgs, toRun project.Packages, err error) {
+func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, err error) {
 	for _, proj := range projects {
 		for _, pkg := range proj.Packages {
 			if pkg.IsVendored {

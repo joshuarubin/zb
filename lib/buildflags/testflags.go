@@ -15,7 +15,7 @@ import (
 )
 
 type TestFlagsData struct {
-	BuildFlagsData
+	Data
 
 	C                bool
 	Exec             stringsFlag
@@ -435,7 +435,7 @@ func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *core.Hash) []str
 		args = append(args, "-trace", f.Trace)
 	}
 
-	if !f.BuildFlagsData.V && f.V {
+	if !f.Data.V && f.V {
 		args = append(args, "-test.v")
 	}
 

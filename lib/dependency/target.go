@@ -63,10 +63,6 @@ func (t *Target) typeName() string {
 	return reflect.Indirect(reflect.ValueOf(t.Dependency)).Type().Name()
 }
 
-func typeName(d Dependency) string {
-	return reflect.Indirect(reflect.ValueOf(d)).Type().Name()
-}
-
 type Targets struct {
 	list map[string]*Target
 	mu   sync.RWMutex
