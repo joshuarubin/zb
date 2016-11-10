@@ -85,16 +85,19 @@ type TargetType int
 const (
 	TargetBuild TargetType = iota
 	TargetInstall
+	TargetGenerate
 )
 
 func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
 	var fn func() *dependency.GoPackage
 
 	switch tt {
-	case TargetBuild:
+	case TargetBuild, TargetGenerate:
 		fn = pkg.BuildTarget
 	case TargetInstall:
 		fn = pkg.InstallTarget
+	default:
+		panic(errors.New("unknown TargetType"))
 	}
 
 	gopkg := fn()

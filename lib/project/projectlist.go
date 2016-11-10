@@ -115,6 +115,13 @@ func (l ProjectList) TargetsEach(tt TargetType, fn func(*dependency.Target) erro
 func (l ProjectList) Build(tt TargetType) (int, error) {
 	var built uint32
 	err := l.TargetsEach(tt, func(target *dependency.Target) error {
+		if tt == TargetGenerate {
+			if _, ok := target.Dependency.(*dependency.GoGenerateFile); !ok {
+				// exclude all dependencies that aren't go generate files
+				return nil
+			}
+		}
+
 		deps, err := target.Dependencies()
 		if err != nil {
 			return err

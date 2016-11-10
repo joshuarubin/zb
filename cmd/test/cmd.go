@@ -83,6 +83,11 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		return err
 	}
 
+	// run go generate as necessary
+	if _, err = projects.Build(project.TargetGenerate); err != nil {
+		return err
+	}
+
 	pkgs, toRun, err := cmd.buildLists(projects)
 	if err != nil {
 		return err
