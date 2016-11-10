@@ -27,6 +27,7 @@ type cc struct {
 	zbcontext.Context
 	NoMissingComment bool
 	IgnoreSuffixes   cli.StringSlice
+	Raw              bool
 
 	ignoreSuffixMap map[string]struct{}
 }
@@ -39,7 +40,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	return cli.Command{
 		Name:      "lint",
 		Usage:     "gometalinter with cache and better defaults",
-		ArgsUsage: "[packages]",
+		ArgsUsage: "[arguments] [packages]",
 		Before: func(c *cli.Context) error {
 			cmd.setup()
 			return nil
@@ -57,6 +58,11 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Name:  "ignore-suffix",
 				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(defaultIgnoreSuffixes, ",")),
 				Value: &cmd.IgnoreSuffixes,
+			},
+			cli.BoolFlag{
+				Name:        "raw",
+				Usage:       "match gometalinter output exactly, don't use logger",
+				Destination: &cmd.Raw,
 			},
 		),
 	}
@@ -108,7 +114,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		}
 
 		if len(toRun) > 0 && toRun[0] == pkg {
-			ecode, err := cmd.RunLinter(pkg.Package.Dir, file)
+			ecode, err := cmd.RunLinter(w, pkg.Package.Dir, file)
 			if err != nil {
 				return err
 			}
@@ -118,7 +124,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 
 			toRun = toRun[1:]
 		} else {
-			failed, err := cmd.ShowResult(file)
+			failed, err := cmd.ShowResult(w, file)
 			if err != nil {
 				return err
 			}
@@ -129,7 +135,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	}
 
 	if code != zbcontext.ExitOK {
-		return cli.NewExitError("", int(code))
+		return cli.NewExitError("", code)
 	}
 
 	return nil
@@ -199,7 +205,7 @@ func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, 
 	return
 }
 
-func (cmd *cc) RunLinter(path, cacheFile string) (int, error) {
+func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
 	code := zbcontext.ExitOK
 
 	if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
@@ -241,7 +247,7 @@ func (cmd *cc) RunLinter(path, cacheFile string) (int, error) {
 		return nil
 	})
 
-	if err := cmd.readLintOutput(pr, cacheFile); err != nil {
+	if err := cmd.readLintOutput(w, pr, cacheFile); err != nil {
 		return code, err
 	}
 
@@ -252,7 +258,7 @@ func (cmd *cc) RunLinter(path, cacheFile string) (int, error) {
 	return code, nil
 }
 
-func (cmd *cc) readLintOutput(pr io.Reader, file string) error {
+func (cmd *cc) readLintOutput(w io.Writer, pr io.Reader, file string) error {
 	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 		return err
 	}
@@ -264,7 +270,7 @@ func (cmd *cc) readLintOutput(pr io.Reader, file string) error {
 
 	defer func() { _ = fd.Close() }() // nosec
 
-	_, err = cmd.readCommon(pr, fd)
+	_, err = cmd.readCommon(w, pr, fd)
 	return err
 }
 
@@ -286,19 +292,31 @@ const (
 	LintLinter
 )
 
-func (cmd *cc) readCommon(pr io.Reader, w io.Writer) (bool, error) {
+func (cmd *cc) readCommon(c io.Writer, pr io.Reader, w io.Writer) (bool, error) {
 	r := bufio.NewReader(pr)
 
-	ew := cmd.Logger.Writer(slog.ErrorLevel).Prefix("← ")
-	ww := cmd.Logger.Writer(slog.WarnLevel).Prefix("← ")
-	iw := cmd.Logger.Writer(slog.InfoLevel).Prefix("← ")
+	var ew, ww, iw io.WriteCloser
+	var def io.Writer
 
-	defer func() {
-		_ = ew.Close()       // nosec
-		_ = ww.Close()       // nosec
-		_, _ = r.WriteTo(iw) // nosec
-		_ = iw.Close()       // nosec
-	}()
+	if cmd.Raw {
+		defer func() {
+			_, _ = r.WriteTo(c)
+		}()
+		def = c
+	} else {
+		ew = cmd.Logger.Writer(slog.ErrorLevel).Prefix("← ")
+		ww = cmd.Logger.Writer(slog.WarnLevel).Prefix("← ")
+		iw = cmd.Logger.Writer(slog.InfoLevel).Prefix("← ")
+
+		defer func() {
+			_ = ew.Close()       // nosec
+			_ = ww.Close()       // nosec
+			_, _ = r.WriteTo(iw) // nosec
+			_ = iw.Close()       // nosec
+		}()
+
+		def = iw
+	}
 
 	var foundLines bool
 
@@ -316,7 +334,7 @@ LOOP:
 			if w != nil {
 				fmt.Fprintf(w, "%s", line)
 			}
-			if _, err := iw.Write([]byte(line)); err != nil {
+			if _, err := def.Write([]byte(line)); err != nil {
 				return foundLines, err
 			}
 			continue
@@ -340,12 +358,14 @@ LOOP:
 			}
 		}
 
-		w := iw
-		switch m[LintLevel] {
-		case "warning":
-			w = ww
-		case "error":
-			w = ew
+		w := def
+		if !cmd.Raw {
+			switch m[LintLevel] {
+			case "warning":
+				w = ww
+			case "error":
+				w = ew
+			}
 		}
 
 		if _, err := w.Write([]byte(line)); err != nil {
@@ -356,12 +376,12 @@ LOOP:
 	return foundLines, nil
 }
 
-func (cmd *cc) ShowResult(cacheFile string) (bool, error) {
+func (cmd *cc) ShowResult(w io.Writer, cacheFile string) (bool, error) {
 	fd, err := os.Open(cacheFile)
 	if err != nil {
 		return false, err
 	}
 	defer func() { _ = fd.Close() }() // nosec
 
-	return cmd.readCommon(fd, nil)
+	return cmd.readCommon(w, fd, nil)
 }
