@@ -271,7 +271,7 @@ func getConcurrency() int {
 var disabledLinters = []string{"aligncheck", "dupl", "gocyclo", "lll", "structcheck", "test", "testify"}
 
 // these are enabled in zb by default
-var enabledLinters = []string{"gofmt", "goimports", "unused"}
+var enabledLinters = []string{"gofmt", "goimports", "unused", "errcheck"}
 
 // the following are disabled in gometalinter by default:
 // testify
@@ -339,6 +339,7 @@ func (f *Data) linters() []string {
 		// testify disabled by default in gometalinter
 
 		// ENABLED
+		"errcheck":  enable,
 		"gofmt":     enable,
 		"goimports": enable,
 		"unused":    enable,
