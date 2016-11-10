@@ -100,7 +100,7 @@ func (ctx *Context) GoExec(args ...string) error {
 		level = slog.ErrorLevel
 	}
 	w := ctx.Logger.Writer(level).Prefix("← ")
-	defer w.Close()
+	defer func() { _ = w.Close() }() // nosec
 
 	if _, err = io.Copy(w, &buf); err != nil {
 		return err

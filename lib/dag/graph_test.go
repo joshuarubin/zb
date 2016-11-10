@@ -54,7 +54,9 @@ func TestMakeEdge(t *testing.T) {
 	}
 	for j := 0; j < 5; j++ {
 		for i := 0; i < 10; i++ {
-			graph.MakeEdge(mapped[i], mapped[(i+1+j)%10])
+			if err := graph.MakeEdge(mapped[i], mapped[(i+1+j)%10]); err != nil {
+				panic(err)
+			}
 		}
 	}
 	graph.verify(t)

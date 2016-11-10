@@ -200,18 +200,29 @@ func (pkg *Package) LintHash(flag *lintflags.Data) (string, error) {
 		fmt.Fprintf(h, "%s\n", arg)
 	}
 
-	if flag.NoTests {
-		pkgHash, err := pkg.Hash()
-		if err != nil {
-			return "", err
-		}
-		fmt.Fprintf(h, "pkg %s\n", pkgHash)
-	} else {
-		testHash, err := pkg.TestHash(&buildflags.TestFlagsData{})
-		if err != nil {
-			return "", err
-		}
-		fmt.Fprintf(h, "test %s\n", testHash)
+	// don't check dependencies when hashing for lint as lint checks the source
+	// of the package, not if any of its dependencies have changed
+
+	var files []string
+
+	files = append(files, pkg.GoFiles...)
+	files = append(files, pkg.CgoFiles...)
+	files = append(files, pkg.CFiles...)
+	files = append(files, pkg.CXXFiles...)
+	files = append(files, pkg.MFiles...)
+	files = append(files, pkg.HFiles...)
+	files = append(files, pkg.SFiles...)
+	files = append(files, pkg.SwigFiles...)
+	files = append(files, pkg.SwigCXXFiles...)
+	files = append(files, pkg.SysoFiles...)
+
+	if !flag.NoTests {
+		files = append(files, pkg.TestGoFiles...)
+		files = append(files, pkg.XTestGoFiles...)
+	}
+
+	if err := hashFiles(h, pkg.Package.Dir, files); err != nil {
+		return "", err
 	}
 
 	pkg.lintHash = fmt.Sprintf("%x", h.Sum(nil))

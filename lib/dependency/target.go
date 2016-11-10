@@ -133,7 +133,9 @@ func (ts *Targets) TopologicalSort() []*Target {
 
 	for _, target := range ts.list {
 		target.RequiredBy.Range(func(t *Target) {
-			graph.MakeEdge(target.Data.(dag.Node), t.Data.(dag.Node))
+			if err := graph.MakeEdge(target.Data.(dag.Node), t.Data.(dag.Node)); err != nil {
+				panic(err)
+			}
 		})
 	}
 

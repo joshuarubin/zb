@@ -43,15 +43,33 @@ func setupTopologicalSort() (*Graph, []Node) {
 	nodes = append(nodes, graph.MakeNode(nil)) // pants
 	nodes = append(nodes, graph.MakeNode(nil)) // shoes
 	nodes = append(nodes, graph.MakeNode(nil)) // socks
-	graph.MakeEdge(nodes[0], nodes[1])
-	graph.MakeEdge(nodes[1], nodes[2])
-	graph.MakeEdge(nodes[0], nodes[3])
-	graph.MakeEdge(nodes[3], nodes[2])
-	graph.MakeEdge(nodes[5], nodes[6])
-	graph.MakeEdge(nodes[5], nodes[7])
-	graph.MakeEdge(nodes[6], nodes[3])
-	graph.MakeEdge(nodes[6], nodes[7])
-	graph.MakeEdge(nodes[8], nodes[7])
+	if err := graph.MakeEdge(nodes[0], nodes[1]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[1], nodes[2]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[0], nodes[3]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[3], nodes[2]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[5], nodes[6]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[5], nodes[7]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[6], nodes[3]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[6], nodes[7]); err != nil {
+		panic(err)
+	}
+	if err := graph.MakeEdge(nodes[8], nodes[7]); err != nil {
+		panic(err)
+	}
 	wantOrder := make([]Node, len(graph.nodes))
 	wantOrder[0] = nodes[8] // socks
 	wantOrder[1] = nodes[5] // undershorts

@@ -75,20 +75,25 @@ func (t *ZBTest) ReadResult(ow, ew io.Writer, r StringReader, p *project.Package
 	w := ow
 	var buf, obuf bytes.Buffer
 
-	defer func(w *io.Writer) { obuf.WriteTo(*w) }(&w)
+	defer func(w *io.Writer) { _, _ = obuf.WriteTo(*w) }(&w) // nosec
 
 	for eof := false; !eof; {
 		line, err := r.ReadString('\n')
-		obuf.WriteString(line)
+		_, oerr := obuf.WriteString(line)
 		if err == io.EOF {
 			eof = true
 		} else if err != nil {
 			return err
 		}
+		if oerr != nil {
+			return oerr
+		}
 
 		m := endRE.FindStringSubmatch(line)
 		if m == nil {
-			buf.WriteString(line)
+			if _, err := buf.WriteString(line); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -136,10 +141,10 @@ func (t *ZBTest) ShowResult(ow, ew io.Writer, p *project.Package) (bool, error) 
 	i := bytes.LastIndex(check, []byte{'\n'})
 	line := check[i+1:]
 	if bytes.HasPrefix(line, []byte(fail)) {
-		ew.Write(data)
-		return false, nil
+		_, err = ew.Write(data)
+		return false, err
 	}
 
-	ow.Write(data)
-	return true, nil
+	_, err = ow.Write(data)
+	return true, err
 }

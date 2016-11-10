@@ -22,6 +22,7 @@ import (
 
 // TODO(jrubin) fix all lint issues
 // TODO(jrubin) test all the things
+// TODO(jrubin) detect import cycles
 
 var (
 	// populated by zb build ldflags

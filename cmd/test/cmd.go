@@ -145,7 +145,7 @@ func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 	code := zbcontext.ExitOK
 	var group errgroup.Group
 	group.Go(func() error {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }() // nosec
 
 		if ecmd == nil {
 			return nil
@@ -164,10 +164,10 @@ func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 	})
 
 	ew := cmd.Logger.Writer(slog.ErrorLevel)
-	defer ew.Close()
+	defer func() { _ = ew.Close() }() // nosec
 
 	ow := cmd.Logger.Writer(slog.InfoLevel)
-	defer ow.Close()
+	defer func() { _ = ow.Close() }() // nosec
 
 	r := bufio.NewReader(pr)
 
@@ -188,7 +188,9 @@ func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 		}
 	}
 
-	io.Copy(w, r)
+	if _, err := io.Copy(w, r); err != nil {
+		return err
+	}
 
 	if err := group.Wait(); err != nil {
 		return err

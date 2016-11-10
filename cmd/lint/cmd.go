@@ -1,38 +1,28 @@
 package lint
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/urfave/cli"
-	"jrubin.io/slog"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
+	"jrubin.io/zb/lib/zblint"
 )
 
 // Cmd is the lint command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
-	NoMissingComment bool
-	IgnoreSuffixes   cli.StringSlice
-	Raw              bool
-
-	ignoreSuffixMap map[string]struct{}
+	zblint.ZBLint
 }
-
-var defaultIgnoreSuffixes = []string{".pb.go", "_string.go"}
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Config = config
@@ -42,7 +32,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Usage:     "gometalinter with cache and better defaults",
 		ArgsUsage: "[arguments] [packages]",
 		Before: func(c *cli.Context) error {
-			cmd.setup()
+			cmd.LintSetup()
 			return nil
 		},
 		Action: func(c *cli.Context) error {
@@ -56,7 +46,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 			},
 			cli.StringSliceFlag{
 				Name:  "ignore-suffix",
-				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(defaultIgnoreSuffixes, ",")),
+				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(zblint.DefaultIgnoreSuffixes, ",")),
 				Value: &cmd.IgnoreSuffixes,
 			},
 			cli.BoolFlag{
@@ -65,25 +55,6 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Destination: &cmd.Raw,
 			},
 		),
-	}
-}
-
-func (cmd *cc) setup() {
-	if len(cmd.IgnoreSuffixes) == 0 {
-		cmd.IgnoreSuffixes = defaultIgnoreSuffixes
-	}
-
-	cmd.ignoreSuffixMap = map[string]struct{}{}
-
-	for _, is := range cmd.IgnoreSuffixes {
-		if is == "" {
-			continue
-		}
-		cmd.ignoreSuffixMap[is] = struct{}{}
-	}
-
-	if filepath.Base(cmd.CacheDir) != "lint" {
-		cmd.CacheDir = filepath.Join(cmd.CacheDir, "lint")
 	}
 }
 
@@ -98,13 +69,19 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		return err
 	}
 
-	// TODO(jrubin) make sure gometalinter is installed (and up to date?)
+	if _, err = exec.LookPath("gometalinter"); err != nil {
+		return err
+	}
 
 	pkgs, toRun, err := cmd.buildLists(projects)
 	if err != nil {
 		return err
 	}
 
+	return cmd.exec(w, pkgs, toRun)
+}
+
+func (cmd *cc) exec(w io.Writer, pkgs, toRun project.Packages) error {
 	code := zbcontext.ExitOK
 
 	for _, pkg := range pkgs {
@@ -114,7 +91,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		}
 
 		if len(toRun) > 0 && toRun[0] == pkg {
-			ecode, err := cmd.RunLinter(w, pkg.Package.Dir, file)
+			ecode, err := cmd.runLinter(w, pkg.Package.Dir, file)
 			if err != nil {
 				return err
 			}
@@ -139,44 +116,6 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	}
 
 	return nil
-}
-
-func (cmd *cc) CacheFile(p *project.Package) (string, error) {
-	lintHash, err := p.LintHash(&cmd.Data)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(
-		cmd.CacheDir,
-		lintHash[:3],
-		fmt.Sprintf("%s.lint", lintHash[3:]),
-	), nil
-}
-
-const cycle = "cycle"
-
-func (cmd *cc) HaveResult(p *project.Package) (bool, error) {
-	if cmd.Force {
-		return false, nil
-	}
-
-	hash, err := p.Hash()
-	if err != nil {
-		return false, err
-	}
-
-	if hash == cycle {
-		return false, nil
-	}
-
-	file, err := cmd.CacheFile(p)
-	if err != nil {
-		return false, err
-	}
-
-	fi, err := os.Stat(file)
-	return err == nil && fi.Mode().IsRegular(), nil
 }
 
 func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, err error) {
@@ -205,7 +144,7 @@ func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, 
 	return
 }
 
-func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
+func (cmd *cc) runLinter(w io.Writer, path, cacheFile string) (int, error) {
 	code := zbcontext.ExitOK
 
 	if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
@@ -215,7 +154,9 @@ func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
 	args := cmd.LintArgs()
 	args = append(args, path)
 
-	cmd.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
+	if !cmd.Raw {
+		cmd.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
+	}
 
 	pr, pw := io.Pipe()
 
@@ -229,7 +170,7 @@ func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }() // nosec
 
 		if ecmd == nil {
 			return nil
@@ -247,7 +188,7 @@ func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
 		return nil
 	})
 
-	if err := cmd.readLintOutput(w, pr, cacheFile); err != nil {
+	if err := cmd.ReadResult(w, pr, cacheFile); err != nil {
 		return code, err
 	}
 
@@ -256,132 +197,4 @@ func (cmd *cc) RunLinter(w io.Writer, path, cacheFile string) (int, error) {
 	}
 
 	return code, nil
-}
-
-func (cmd *cc) readLintOutput(w io.Writer, pr io.Reader, file string) error {
-	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
-		return err
-	}
-
-	fd, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = fd.Close() }() // nosec
-
-	_, err = cmd.readCommon(w, pr, fd)
-	return err
-}
-
-var (
-	levelRE   = regexp.MustCompile(`\A([^:]*):(\d*):(\d*):(\w+): (.*?) \((\w+)\)( \(cached\))?\n\z`)
-	commentRE = regexp.MustCompile(` should have comment.* or be unexported`)
-)
-
-// Part enum representing each field in a gometalinter line
-type Part int
-
-// The different fields of the gometalinter line
-const (
-	LintFile Part = 1 + iota
-	LintLine
-	LintColumn
-	LintLevel
-	LintMessage
-	LintLinter
-)
-
-func (cmd *cc) readCommon(c io.Writer, pr io.Reader, w io.Writer) (bool, error) {
-	r := bufio.NewReader(pr)
-
-	var ew, ww, iw io.WriteCloser
-	var def io.Writer
-
-	if cmd.Raw {
-		defer func() {
-			_, _ = r.WriteTo(c)
-		}()
-		def = c
-	} else {
-		ew = cmd.Logger.Writer(slog.ErrorLevel).Prefix("← ")
-		ww = cmd.Logger.Writer(slog.WarnLevel).Prefix("← ")
-		iw = cmd.Logger.Writer(slog.InfoLevel).Prefix("← ")
-
-		defer func() {
-			_ = ew.Close()       // nosec
-			_ = ww.Close()       // nosec
-			_, _ = r.WriteTo(iw) // nosec
-			_ = iw.Close()       // nosec
-		}()
-
-		def = iw
-	}
-
-	var foundLines bool
-
-LOOP:
-	for eof := false; !eof; {
-		line, err := r.ReadString('\n')
-		if err == io.EOF {
-			eof = true
-		} else if err != nil {
-			return foundLines, err
-		}
-
-		m := levelRE.FindStringSubmatch(line)
-		if m == nil {
-			if w != nil {
-				fmt.Fprintf(w, "%s", line)
-			}
-			if _, err := def.Write([]byte(line)); err != nil {
-				return foundLines, err
-			}
-			continue
-		}
-
-		foundLines = true
-
-		if w != nil {
-			fmt.Fprintf(w, "%s (cached)\n", strings.TrimSuffix(line, "\n"))
-		}
-
-		if cmd.NoMissingComment &&
-			m[LintLinter] == "golint" &&
-			commentRE.MatchString(m[LintMessage]) {
-			continue
-		}
-
-		for is := range cmd.ignoreSuffixMap {
-			if strings.HasSuffix(m[LintFile], is) {
-				continue LOOP
-			}
-		}
-
-		w := def
-		if !cmd.Raw {
-			switch m[LintLevel] {
-			case "warning":
-				w = ww
-			case "error":
-				w = ew
-			}
-		}
-
-		if _, err := w.Write([]byte(line)); err != nil {
-			return foundLines, err
-		}
-	}
-
-	return foundLines, nil
-}
-
-func (cmd *cc) ShowResult(w io.Writer, cacheFile string) (bool, error) {
-	fd, err := os.Open(cacheFile)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = fd.Close() }() // nosec
-
-	return cmd.readCommon(w, fd, nil)
 }

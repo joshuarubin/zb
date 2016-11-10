@@ -144,7 +144,7 @@ func matchPackages(buildContext *build.Context, pattern string) []string {
 		if pattern == cmd {
 			root += cmd + string(filepath.Separator)
 		}
-		filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
+		err := filepath.Walk(root, func(path string, fi os.FileInfo, err error) error {
 			if err != nil || !fi.IsDir() || path == src {
 				return nil
 			}
@@ -180,6 +180,9 @@ func matchPackages(buildContext *build.Context, pattern string) []string {
 			pkgs = append(pkgs, name)
 			return nil
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
 	return pkgs
 }
@@ -249,7 +252,7 @@ func matchPackagesInFS(buildContext *build.Context, pattern string, logger slog.
 	match := matchPattern(pattern)
 
 	var pkgs []string
-	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil || !fi.IsDir() {
 			return nil
 		}
@@ -292,5 +295,8 @@ func matchPackagesInFS(buildContext *build.Context, pattern string, logger slog.
 		pkgs = append(pkgs, name)
 		return nil
 	})
+	if err != nil {
+		panic(err)
+	}
 	return pkgs
 }
