@@ -2,9 +2,11 @@ package lint
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -20,8 +22,13 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zbcontext.Context
-	NC bool
+	NoMissingComment bool
+	IgnoreSuffixes   cli.StringSlice
+
+	ignoreSuffixMap map[string]struct{}
 }
+
+var defaultIgnoreSuffixes = []string{".pb.go", "_string.go"}
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.Logger = config.Logger
@@ -30,24 +37,53 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 
 	return cli.Command{
 		Name:      "lint",
-		Usage:     "TODO(jrubin)",
+		Usage:     "gometalinter with cache and better defaults",
 		ArgsUsage: "[packages]",
+		Before: func(c *cli.Context) error {
+			cmd.setup()
+			return nil
+		},
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
 		},
 		Flags: append(cmd.LintFlags(),
 			cli.BoolFlag{
-				Name:        "nc",
+				Name:        "n",
 				Usage:       "Hide golint missing comment warnings",
-				Destination: &cmd.NC,
+				Destination: &cmd.NoMissingComment,
+			},
+			cli.StringSliceFlag{
+				Name:  "ignore-suffix",
+				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(defaultIgnoreSuffixes, ",")),
+				Value: &cmd.IgnoreSuffixes,
 			},
 		),
+	}
+}
+
+func (cmd *cc) setup() {
+	if len(cmd.IgnoreSuffixes) == 0 {
+		cmd.IgnoreSuffixes = defaultIgnoreSuffixes
+	}
+
+	cmd.ignoreSuffixMap = map[string]struct{}{}
+
+	for _, is := range cmd.IgnoreSuffixes {
+		if is == "" {
+			continue
+		}
+		cmd.ignoreSuffixMap[is] = struct{}{}
 	}
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
 	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
+		return err
+	}
+
+	// run go generate as necessary
+	if _, err = projects.Build(project.TargetGenerate); err != nil {
 		return err
 	}
 
@@ -126,8 +162,21 @@ func (cmd *cc) exec(w io.Writer, path string) (int, error) {
 }
 
 var (
-	levelRE   = regexp.MustCompile(`\A([^:]*):(\d*):(\d*):(\w+): (.*)\n\z`)
-	commentRE = regexp.MustCompile(` should have comment.* or be unexported.*\(golint\)`)
+	levelRE   = regexp.MustCompile(`\A([^:]*):(\d*):(\d*):(\w+): (.*) \((\w+)\)\n\z`)
+	commentRE = regexp.MustCompile(` should have comment.* or be unexported`)
+)
+
+// Part enum representing each field in a gometalinter line
+type Part int
+
+// The different fields of the gometalinter line
+const (
+	LintFile Part = 1 + iota
+	LintLine
+	LintColumn
+	LintLevel
+	LintMessage
+	LintLinter
 )
 
 func (cmd *cc) readLintOutput(pr io.Reader) error {
@@ -142,6 +191,7 @@ func (cmd *cc) readLintOutput(pr io.Reader) error {
 
 	r := bufio.NewReader(pr)
 
+LOOP:
 	for eof := false; !eof; {
 		line, err := r.ReadString('\n')
 		if err == io.EOF {
@@ -156,11 +206,19 @@ func (cmd *cc) readLintOutput(pr io.Reader) error {
 			continue
 		}
 
-		if cmd.NC && commentRE.MatchString(line) {
+		if cmd.NoMissingComment &&
+			m[LintLinter] == "golint" &&
+			commentRE.MatchString(m[LintMessage]) {
 			continue
 		}
 
-		switch m[4] {
+		for is := range cmd.ignoreSuffixMap {
+			if strings.HasSuffix(m[LintFile], is) {
+				continue LOOP
+			}
+		}
+
+		switch m[LintLevel] {
 		case "warning":
 			ww.Write([]byte(line))
 		case "error":

@@ -207,7 +207,7 @@ func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
 	}
 
 	if code != zbcontext.ExitOK {
-		return cli.NewExitError("", int(code))
+		return cli.NewExitError("", code)
 	}
 
 	return nil

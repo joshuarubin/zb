@@ -2,14 +2,13 @@ package lintflags
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/urfave/cli"
 )
-
-var disabledLinters = []string{"testify", "test", "gofmt", "goimports", "lll", "misspell", "unused"}
 
 var (
 	// defaults as gometalinter expects them
@@ -96,7 +95,7 @@ func (f *Data) LintFlags() []cli.Flag {
 		cli.IntFlag{
 			Name:        "concurrency, j",
 			Usage:       "Number of concurrent linters to run.",
-			Value:       3,
+			Value:       getConcurrency(),
 			Destination: &f.Concurrency,
 		},
 		cli.StringSliceFlag{
@@ -203,7 +202,7 @@ func (f *Data) LintFlags() []cli.Flag {
 		},
 		cli.StringSliceFlag{
 			Name:  "enable, E",
-			Usage: "Enable previously disabled linters.",
+			Usage: fmt.Sprintf("Enable previously disabled linters (%s).", strings.Join(enabledLinters, ",")),
 			Value: &f.Enable,
 		},
 		cli.StringSliceFlag{
@@ -239,6 +238,40 @@ func (f *Data) LintFlags() []cli.Flag {
 		// },
 	}
 }
+
+func getConcurrency() int {
+	// return at least 1
+	// the lesser of:
+	// * if even number of cpus, 1 less than half that number
+	// * if odd number of cpus, half that number rounded down (truncated)
+	// * GOMAXPROCS
+	n := runtime.NumCPU()
+	var cpu int
+	if n%2 == 0 { // even
+		cpu = n/2 - 1
+	} else { // odd
+		cpu = n / 2
+	}
+
+	m := runtime.GOMAXPROCS(-1)
+
+	r := m
+	if cpu < m {
+		r = cpu
+	}
+
+	if r <= 0 {
+		r = 1
+	}
+
+	return r
+}
+
+// these are disabled in zb by default
+var disabledLinters = []string{"aligncheck", "dupl", "gocyclo", "lll", "structcheck", "test", "testify"}
+
+// these are enabled in zb by default
+var enabledLinters = []string{"gofmt", "goimports", "unused"}
 
 // the following are disabled in gometalinter by default:
 // testify
@@ -296,14 +329,19 @@ func (f *Data) linters() []string {
 	// --fast
 
 	lm := map[string]string{
-		"gocyclo":     disable,
-		"dupl":        disable,
+		// DISABLED
 		"aligncheck":  disable,
+		"dupl":        disable,
+		"gocyclo":     disable,
 		"structcheck": disable,
-		"gofmt":       enable,
-		"goimports":   enable,
-		"misspell":    enable,
-		"unused":      enable,
+		// lll     disabled by default in gometalinter
+		// test    disabled by default in gometalinter
+		// testify disabled by default in gometalinter
+
+		// ENABLED
+		"gofmt":     enable,
+		"goimports": enable,
+		"unused":    enable,
 	}
 
 	for _, v := range f.Disable {
