@@ -9,6 +9,7 @@ import (
 	"jrubin.io/slog/handlers/text"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/cmd/build"
+	"jrubin.io/zb/cmd/clean"
 	"jrubin.io/zb/cmd/commands"
 	"jrubin.io/zb/cmd/complete"
 	"jrubin.io/zb/cmd/install"
@@ -41,8 +42,8 @@ var subcommands = []cmd.Constructor{
 	build.Cmd,
 	install.Cmd,
 	test.Cmd,
+	clean.Cmd,
 	// TODO(jrubin) lint
-	// TODO(jrubin) clean
 	// TODO(jrubin) run
 	// TODO(jrubin) get (whole repo)
 }

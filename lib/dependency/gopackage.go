@@ -54,10 +54,7 @@ func (pkg GoPackage) Build() error {
 		return err
 	}
 
-	dir := pkg.ImportPathToDir(pkg.ProjectImportPath)
-	path := zbcontext.BuildPath(dir, pkg.Package)
-
-	return pkg.Touch(path)
+	return pkg.Touch(pkg.Name())
 }
 
 func (pkg GoPackage) Install() error {

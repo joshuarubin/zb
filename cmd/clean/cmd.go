@@ -1,8 +1,8 @@
-package commands
+package clean
 
 import (
-	"fmt"
 	"io"
+	"os"
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
@@ -10,7 +10,7 @@ import (
 	"jrubin.io/zb/lib/zbcontext"
 )
 
-// Cmd is the commands command
+// Cmd is the clean command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
@@ -23,8 +23,8 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	cmd.ExcludeVendor = true
 
 	return cli.Command{
-		Name:      "commands",
-		Usage:     "list all of the executables that will be emitted by the build command",
+		Name:      "clean",
+		Usage:     "remove executables in repo produced by build",
 		ArgsUsage: "[packages]",
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
@@ -41,7 +41,22 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
 			if pkg.IsCommand() {
-				fmt.Fprintln(w, pkg.BuildPath())
+				path := pkg.BuildPath()
+				logger := cmd.Logger.WithField("path", path)
+
+				err := os.Remove(path)
+
+				if err == nil {
+					logger.Info("removed")
+					continue
+				}
+
+				if os.IsNotExist(err) {
+					logger.Info(err.(*os.PathError).Err.Error())
+					continue
+				}
+
+				logger.WithError(err).Error("error removing executable")
 			}
 		}
 	}

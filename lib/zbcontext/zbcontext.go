@@ -153,6 +153,7 @@ func ExitCode(err error) (int, error) {
 
 func (ctx Context) Touch(path string) error {
 	now := time.Now()
+	ctx.Logger.WithField("path", path).Debug("touch")
 	return os.Chtimes(path, now, now)
 }
 
