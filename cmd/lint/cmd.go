@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -31,9 +34,7 @@ type cc struct {
 var defaultIgnoreSuffixes = []string{".pb.go", "_string.go"}
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Logger = config.Logger
-	cmd.SrcDir = config.Cwd
-	cmd.ExcludeVendor = true
+	cmd.Config = config
 
 	return cli.Command{
 		Name:      "lint",
@@ -74,6 +75,10 @@ func (cmd *cc) setup() {
 		}
 		cmd.ignoreSuffixMap[is] = struct{}{}
 	}
+
+	if filepath.Base(cmd.CacheDir) != "lint" {
+		cmd.CacheDir = filepath.Join(cmd.CacheDir, "lint")
+	}
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
@@ -88,19 +93,37 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	}
 
 	// TODO(jrubin) make sure gometalinter is installed (and up to date?)
-	// TODO(jrubin) cache results like test
+
+	pkgs, toRun, err := cmd.buildLists(projects)
+	if err != nil {
+		return err
+	}
 
 	code := zbcontext.ExitOK
 
-	for _, p := range projects {
-		for _, pkg := range p.Packages {
-			ecode, err := cmd.exec(w, pkg.Package.Dir)
+	for _, pkg := range pkgs {
+		file, err := cmd.CacheFile(pkg)
+		if err != nil {
+			return err
+		}
+
+		if len(toRun) > 0 && toRun[0] == pkg {
+			ecode, err := cmd.RunLinter(pkg.Package.Dir, file)
 			if err != nil {
 				return err
 			}
-
 			if code == zbcontext.ExitOK {
 				code = ecode
+			}
+
+			toRun = toRun[1:]
+		} else {
+			failed, err := cmd.ShowResult(file)
+			if err != nil {
+				return err
+			}
+			if code == zbcontext.ExitOK && failed {
+				code = zbcontext.ExitFailed
 			}
 		}
 	}
@@ -112,7 +135,77 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	return nil
 }
 
-func (cmd *cc) exec(w io.Writer, path string) (int, error) {
+func (cmd *cc) CacheFile(p *project.Package) (string, error) {
+	lintHash, err := p.LintHash(&cmd.Data)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(
+		cmd.CacheDir,
+		lintHash[:3],
+		fmt.Sprintf("%s.lint", lintHash[3:]),
+	), nil
+}
+
+const cycle = "cycle"
+
+func (cmd *cc) HaveResult(p *project.Package) (bool, error) {
+	if cmd.Force {
+		return false, nil
+	}
+
+	hash, err := p.Hash()
+	if err != nil {
+		return false, err
+	}
+
+	if hash == cycle {
+		return false, nil
+	}
+
+	file, err := cmd.CacheFile(p)
+	if err != nil {
+		return false, err
+	}
+
+	fi, err := os.Stat(file)
+	return err == nil && fi.Mode().IsRegular(), nil
+}
+
+func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, err error) {
+	for _, proj := range projects {
+		for _, pkg := range proj.Packages {
+			if pkg.IsVendored {
+				continue
+			}
+
+			pkgs = append(pkgs, pkg)
+
+			var foundResult bool
+			if foundResult, err = cmd.HaveResult(pkg); err != nil {
+				return
+			}
+
+			if !foundResult {
+				toRun = append(toRun, pkg)
+			}
+		}
+	}
+
+	sort.Sort(&pkgs)
+	sort.Sort(&toRun)
+
+	return
+}
+
+func (cmd *cc) RunLinter(path, cacheFile string) (int, error) {
+	code := zbcontext.ExitOK
+
+	if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
+		return code, err
+	}
+
 	args := cmd.LintArgs()
 	args = append(args, path)
 
@@ -123,8 +216,6 @@ func (cmd *cc) exec(w io.Writer, path string) (int, error) {
 	ecmd := exec.Command("gometalinter", args...) // nosec
 	ecmd.Stdout = pw
 	ecmd.Stderr = pw
-
-	code := zbcontext.ExitOK
 
 	if err := ecmd.Start(); err != nil {
 		return code, err
@@ -150,7 +241,7 @@ func (cmd *cc) exec(w io.Writer, path string) (int, error) {
 		return nil
 	})
 
-	if err := cmd.readLintOutput(pr); err != nil {
+	if err := cmd.readLintOutput(pr, cacheFile); err != nil {
 		return code, err
 	}
 
@@ -161,8 +252,24 @@ func (cmd *cc) exec(w io.Writer, path string) (int, error) {
 	return code, nil
 }
 
+func (cmd *cc) readLintOutput(pr io.Reader, file string) error {
+	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
+		return err
+	}
+
+	fd, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = fd.Close() }() // nosec
+
+	_, err = cmd.readCommon(pr, fd)
+	return err
+}
+
 var (
-	levelRE   = regexp.MustCompile(`\A([^:]*):(\d*):(\d*):(\w+): (.*) \((\w+)\)\n\z`)
+	levelRE   = regexp.MustCompile(`\A([^:]*):(\d*):(\d*):(\w+): (.*?) \((\w+)\)( \(cached\))?\n\z`)
 	commentRE = regexp.MustCompile(` should have comment.* or be unexported`)
 )
 
@@ -179,17 +286,21 @@ const (
 	LintLinter
 )
 
-func (cmd *cc) readLintOutput(pr io.Reader) error {
-	ew := cmd.Logger.Writer(slog.ErrorLevel).Prefix("← ")
-	defer ew.Close()
-
-	ww := cmd.Logger.Writer(slog.WarnLevel).Prefix("← ")
-	defer ww.Close()
-
-	iw := cmd.Logger.Writer(slog.InfoLevel).Prefix("← ")
-	defer iw.Close()
-
+func (cmd *cc) readCommon(pr io.Reader, w io.Writer) (bool, error) {
 	r := bufio.NewReader(pr)
+
+	ew := cmd.Logger.Writer(slog.ErrorLevel).Prefix("← ")
+	ww := cmd.Logger.Writer(slog.WarnLevel).Prefix("← ")
+	iw := cmd.Logger.Writer(slog.InfoLevel).Prefix("← ")
+
+	defer func() {
+		_ = ew.Close()       // nosec
+		_ = ww.Close()       // nosec
+		_, _ = r.WriteTo(iw) // nosec
+		_ = iw.Close()       // nosec
+	}()
+
+	var foundLines bool
 
 LOOP:
 	for eof := false; !eof; {
@@ -197,13 +308,24 @@ LOOP:
 		if err == io.EOF {
 			eof = true
 		} else if err != nil {
-			return err
+			return foundLines, err
 		}
 
 		m := levelRE.FindStringSubmatch(line)
 		if m == nil {
-			iw.Write([]byte(line))
+			if w != nil {
+				fmt.Fprintf(w, "%s", line)
+			}
+			if _, err := iw.Write([]byte(line)); err != nil {
+				return foundLines, err
+			}
 			continue
+		}
+
+		foundLines = true
+
+		if w != nil {
+			fmt.Fprintf(w, "%s (cached)\n", strings.TrimSuffix(line, "\n"))
 		}
 
 		if cmd.NoMissingComment &&
@@ -218,15 +340,28 @@ LOOP:
 			}
 		}
 
+		w := iw
 		switch m[LintLevel] {
 		case "warning":
-			ww.Write([]byte(line))
+			w = ww
 		case "error":
-			ew.Write([]byte(line))
-		default:
-			iw.Write([]byte(line))
+			w = ew
+		}
+
+		if _, err := w.Write([]byte(line)); err != nil {
+			return foundLines, err
 		}
 	}
 
-	return nil
+	return foundLines, nil
+}
+
+func (cmd *cc) ShowResult(cacheFile string) (bool, error) {
+	fd, err := os.Open(cacheFile)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = fd.Close() }() // nosec
+
+	return cmd.readCommon(fd, nil)
 }

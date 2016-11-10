@@ -137,7 +137,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			break
 		}
 
-		if e.NoWarnTodoFixme != nil && !*e.NoWarnTodoFixme {
+		if !e.NoWarnTodoFixme {
 			base := e.Context.ImportPathToDir(e.ProjectImportPath)
 			if strings.HasPrefix(e.Path, base) &&
 				!strings.Contains(e.Path, "vendor/") &&

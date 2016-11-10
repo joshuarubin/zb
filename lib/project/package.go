@@ -13,6 +13,7 @@ import (
 
 	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/dependency"
+	"jrubin.io/zb/lib/lintflags"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
@@ -23,11 +24,11 @@ type Package struct {
 
 	IsVendored bool
 
-	deps               Packages
-	depsBuilt          bool
-	includeTestImports bool
-	testHash, pkgHash  string
-	depMap             map[string]*Package
+	deps                        Packages
+	depsBuilt                   bool
+	includeTestImports          bool
+	pkgHash, testHash, lintHash string
+	depMap                      map[string]*Package
 }
 
 type Packages []*Package
@@ -184,6 +185,38 @@ func (pkg *Package) Deps() ([]*Package, error) {
 }
 
 const cycle = "cycle"
+
+func (pkg *Package) LintHash(flag *lintflags.Data) (string, error) {
+	if pkg.lintHash != "" {
+		return pkg.lintHash, nil
+	}
+
+	pkg.lintHash = cycle
+
+	h := sha1.New()
+	fmt.Fprintf(h, "lint\n")
+
+	for _, arg := range flag.LintArgs() {
+		fmt.Fprintf(h, "%s\n", arg)
+	}
+
+	if flag.NoTests {
+		pkgHash, err := pkg.Hash()
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(h, "pkg %s\n", pkgHash)
+	} else {
+		testHash, err := pkg.TestHash(&buildflags.TestFlagsData{})
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(h, "test %s\n", testHash)
+	}
+
+	pkg.lintHash = fmt.Sprintf("%x", h.Sum(nil))
+	return pkg.lintHash, nil
+}
 
 func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 	if pkg.testHash != "" {

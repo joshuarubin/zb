@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -10,10 +13,11 @@ import (
 
 // Config is passed into each command's New Constructor
 type Config struct {
-	Logger               *slog.Logger
-	Cwd                  string
+	Logger               slog.Logger
+	SrcDir               string
 	GitCommit, BuildDate *string
 	NoWarnTodoFixme      bool
+	CacheDir             string
 }
 
 // Constructor returns a cli.Command
@@ -59,4 +63,12 @@ func bashComplete(c *cli.Context, cmds []cli.Command, flags []cli.Flag) {
 			}
 		}
 	}
+}
+
+func DefaultCacheDir(name string) string {
+	if runtime.GOOS == "darwin" {
+		return filepath.Join(os.Getenv("HOME"), "Library", "Caches", name)
+	}
+
+	return filepath.Join(os.Getenv("HOME"), ".cache", name)
 }

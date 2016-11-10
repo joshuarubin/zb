@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	cli.ErrWriter = logger.Writer(slog.ErrorLevel)
+	cli.ErrWriter = config.Logger.Writer(slog.ErrorLevel)
 
 	cli.BashCompletionFlag = cli.BoolFlag{
 		Name:   "compgen",

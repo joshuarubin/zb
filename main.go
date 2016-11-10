@@ -27,15 +27,12 @@ var (
 	// populated by zb build ldflags
 	gitCommit, buildDate string
 
-	logger slog.Logger
-
 	level = slog.WarnLevel
 	app   = cli.NewApp()
 
 	config = cmd.Config{
 		GitCommit: &gitCommit,
 		BuildDate: &buildDate,
-		Logger:    &logger,
 	}
 )
 
@@ -53,7 +50,7 @@ var subcommands = []cmd.Constructor{
 
 func init() {
 	var err error
-	config.Cwd, err = os.Getwd()
+	config.SrcDir, err = os.Getwd()
 	if err != nil {
 		panic(err)
 	}
@@ -84,6 +81,13 @@ func init() {
 			Usage:       "do not warn when finding " + strings.ToUpper("warn") + " or " + strings.ToUpper("fixme") + " in .go files",
 			Destination: &config.NoWarnTodoFixme,
 		},
+		cli.StringFlag{
+			Name:        "cache",
+			Destination: &config.CacheDir,
+			EnvVar:      "CACHE",
+			Value:       cmd.DefaultCacheDir(app.Name),
+			Usage:       "commands that cache results use this as their base directory",
+		},
 	}
 
 	for _, sc := range subcommands {
@@ -103,7 +107,7 @@ func main() {
 }
 
 func setup() {
-	logger.RegisterHandler(level, &text.Handler{
+	config.Logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
 	})

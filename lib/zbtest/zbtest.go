@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"jrubin.io/zb/lib/project"
@@ -17,7 +16,6 @@ import (
 
 type ZBTest struct {
 	zbcontext.Context
-	CacheDir string
 }
 
 const (
@@ -26,14 +24,6 @@ const (
 )
 
 var endRE = regexp.MustCompile(`\A(\?|ok|FAIL) {0,3}\t([^ \t]+)[ \t]([0-9.]+s|\[.*\])\n\z`)
-
-func DefaultCacheDir() string {
-	if runtime.GOOS == "darwin" {
-		return filepath.Join(os.Getenv("HOME"), "Library", "Caches")
-	}
-
-	return filepath.Join(os.Getenv("HOME"), ".cache", "go-test-cache")
-}
 
 func (t *ZBTest) CacheFile(p *project.Package) (string, error) {
 	testHash, err := p.TestHash(&t.TestFlagsData)

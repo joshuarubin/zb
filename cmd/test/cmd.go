@@ -29,9 +29,7 @@ type cc struct {
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Logger = config.Logger
-	cmd.SrcDir = config.Cwd
-	cmd.NoWarnTodoFixme = &config.NoWarnTodoFixme
+	cmd.Config = config
 
 	return cli.Command{
 		Name:      "test",
@@ -57,23 +55,13 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Destination: &cmd.List,
 				Usage:       "list the uncached tests it would run",
 			},
-			cli.StringFlag{
-				Name:        "cache",
-				Destination: &cmd.CacheDir,
-				EnvVar:      "CACHE",
-				Value:       zbtest.DefaultCacheDir(),
-				Usage: `
-
-				test results are saved in the 'go-test-cache' directory under
-				this base directory`,
-			},
 		}...),
 	}
 }
 
 func (cmd *cc) setup() error {
-	if filepath.Base(cmd.CacheDir) != "go-test-cache" {
-		cmd.CacheDir = filepath.Join(cmd.CacheDir, "go-test-cache")
+	if filepath.Base(cmd.CacheDir) != "test" {
+		cmd.CacheDir = filepath.Join(cmd.CacheDir, "test")
 	}
 	return nil
 }

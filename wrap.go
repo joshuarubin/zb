@@ -32,7 +32,7 @@ func wrapFn(fn interface{}) func(*cli.Context) error {
 	return func(c *cli.Context) error {
 		err := do(c)
 		if serr, ok := err.(stackTracer); ok && serr != nil {
-			logger.
+			config.Logger.
 				WithError(err).
 				WithField("command", c.Command.Name).
 				Error("error")

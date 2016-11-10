@@ -84,7 +84,7 @@ func (f *Data) LintFlags() []cli.Flag {
 		},
 		cli.BoolFlag{
 			Name:        "force, f",
-			Usage:       "Pass -f to go tool when installing.",
+			Usage:       "Pass -f to go tool when installing. When linting treats all lint results as uncached.",
 			Destination: &f.Force,
 		},
 		cli.BoolFlag{
@@ -352,13 +352,26 @@ func (f *Data) linters() []string {
 		lm[v] = enable
 	}
 
-	var args []string
+	var disabled, enabled []string
 
 	for l, f := range lm {
-		args = append(args, f+" "+l)
+		if f == disable {
+			disabled = append(disabled, l)
+		} else {
+			enabled = append(enabled, l)
+		}
 	}
-	sort.Strings(args)
-	args = strings.Fields(strings.Join(args, " "))
+
+	sort.Strings(disabled)
+	sort.Strings(enabled)
+
+	var args []string
+	for _, v := range disabled {
+		args = append(args, disable, v)
+	}
+	for _, v := range enabled {
+		args = append(args, enable, v)
+	}
 
 	if f.Fast {
 		args = append(args, "--fast")
@@ -384,14 +397,14 @@ func (f *Data) LintArgs() []string {
 
 	if f.Install {
 		args = append(args, "--install")
-	}
 
-	if f.Update {
-		args = append(args, "--update")
-	}
+		if f.Update {
+			args = append(args, "--update")
+		}
 
-	if f.Force {
-		args = append(args, "--force")
+		if f.Force {
+			args = append(args, "--force")
+		}
 	}
 
 	if f.Debug {

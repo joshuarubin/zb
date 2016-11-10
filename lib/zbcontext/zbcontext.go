@@ -15,6 +15,7 @@ import (
 	"github.com/urfave/cli"
 
 	"jrubin.io/slog"
+	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/ellipsis"
 	"jrubin.io/zb/lib/lintflags"
@@ -24,13 +25,11 @@ import (
 type Context struct {
 	buildflags.TestFlagsData
 	lintflags.Data
-	SrcDir          string
-	ExcludeVendor   bool
-	Logger          *slog.Logger
-	GenerateRun     string
-	Force           bool
-	List            bool
-	NoWarnTodoFixme *bool
+	*cmd.Config
+	ExcludeVendor bool
+	GenerateRun   string
+	Force         bool
+	List          bool
 }
 
 func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
@@ -183,7 +182,7 @@ func (ctx *Context) ImportPathToDir(importPath string) string {
 }
 
 func (ctx *Context) ExpandEllipsis(args ...string) []string {
-	return ellipsis.Expand(ctx.BuildContext(), ctx.Logger, args...)
+	return ellipsis.Expand(ctx.BuildContext(), &ctx.Logger, args...)
 }
 
 // GitDir checks the directory value for the presence of .git and will walk up
