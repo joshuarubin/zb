@@ -25,7 +25,14 @@ type ZBLint struct {
 	ignoreSuffixMap map[string]struct{}
 }
 
-var DefaultIgnoreSuffixes = []string{".pb.go", "_string.go"}
+var DefaultIgnoreSuffixes = []string{
+	".pb.go",
+	".pb.gw.go",
+	"_string.go",
+	"bindata.go",
+	"bindata_assetfs.go",
+	"static.go",
+}
 
 func (l *ZBLint) LintSetup() {
 	if l.Raw {
