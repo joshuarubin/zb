@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"jrubin.io/slog"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
@@ -164,13 +165,20 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			return nil, errors.New("no arguments to directive")
 		}
 
-		var deps []Dependency
+		var deps []*GoGenerateFile
 		deps, err = e.parseZBGenerate(words)
 		if err != nil {
 			return nil, err
 		}
 
-		e.dependencies = append(e.dependencies, deps...)
+		for _, dep := range deps {
+			e.Logger.WithFields(slog.Fields{
+				"source":       dep.Path,
+				"depends_on":   dep.Depends.Name(),
+				"from_go_file": e.Path,
+			}).Debug("found go:generate dependency")
+			e.dependencies = append(e.dependencies, dep)
+		}
 	}
 	if err != nil && err != io.EOF {
 		return nil, errors.Wrapf(err, "error reading %s", e.Path)
@@ -252,7 +260,7 @@ func (e *GoFile) parseGlobs(words []string) ([]string, error) {
 	return files, nil
 }
 
-func (e *GoFile) parseZBGenerate(words []string) ([]Dependency, error) {
+func (e *GoFile) parseZBGenerate(words []string) ([]*GoGenerateFile, error) {
 	// formats to parse:
 	// 1. -patsubst %pattern %replacement glob glob... (like Make)
 	// 2. glob glob...
@@ -266,7 +274,7 @@ func (e *GoFile) parseZBGenerate(words []string) ([]Dependency, error) {
 		return nil, err
 	}
 
-	var deps []Dependency
+	var deps []*GoGenerateFile
 	for _, file := range files {
 		// run go generate on `e.Path` if `e.Path` is newer than `file`
 		deps = append(deps, &GoGenerateFile{
@@ -278,7 +286,7 @@ func (e *GoFile) parseZBGenerate(words []string) ([]Dependency, error) {
 	return deps, nil
 }
 
-func (e *GoFile) parsePatSubst(words []string) ([]Dependency, error) {
+func (e *GoFile) parsePatSubst(words []string) ([]*GoGenerateFile, error) {
 	if len(words) < 3 {
 		return nil, errors.New("invalid patsubst")
 	}
@@ -291,9 +299,12 @@ func (e *GoFile) parsePatSubst(words []string) ([]Dependency, error) {
 		return nil, err
 	}
 
-	var deps []Dependency
+	var deps []*GoGenerateFile
 	for _, file := range files {
 		sfile := substitute(pattern, replacement, file)
+		if !filepath.IsAbs(sfile) {
+			sfile = filepath.Join(filepath.Dir(e.Path), sfile)
+		}
 		if sfile != "" {
 			// run go generate on `e.Path` if `file` is newer than `sfile`
 			deps = append(deps, &GoGenerateFile{

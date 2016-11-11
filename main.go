@@ -60,7 +60,7 @@ func init() {
 	app.Name = "zb"
 	app.HideVersion = true
 	app.Version = "0.1.0"
-	app.Usage = "an opinionated repo based build tool"
+	app.Usage = "an opinionated repo based tool for working with go"
 	app.EnableBashCompletion = true
 	app.BashComplete = cmd.BashComplete
 	app.Before = func(*cli.Context) error {
