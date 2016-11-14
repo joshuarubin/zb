@@ -3,6 +3,7 @@ package clean
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -38,7 +39,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		return err
 	}
 
-	prefix := cmd.SrcDir + "/"
+	prefix := cmd.SrcDir + string(filepath.Separator)
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
 			if pkg.IsCommand() {

@@ -112,10 +112,10 @@ func hasPathPrefix(s, prefix string) bool {
 	case len(s) == len(prefix):
 		return s == prefix
 	case len(s) > len(prefix):
-		if prefix != "" && prefix[len(prefix)-1] == '/' {
+		if prefix != "" && prefix[len(prefix)-1] == filepath.Separator {
 			return strings.HasPrefix(s, prefix)
 		}
-		return s[len(prefix)] == '/' && s[:len(prefix)] == prefix
+		return s[len(prefix)] == filepath.Separator && s[:len(prefix)] == prefix
 	}
 }
 
@@ -192,7 +192,7 @@ func matchPackages(buildContext *build.Context, pattern string) []string {
 // their own code to $GOROOT instead of using $GOPATH, but we assume that
 // code will start with a domain name (dot in the first element).
 func isStandardImportPath(path string) bool {
-	i := strings.Index(path, "/")
+	i := strings.Index(path, string(filepath.Separator))
 	if i < 0 {
 		i = len(path)
 	}

@@ -65,7 +65,7 @@ func (ctx *Context) DirToImportPath(dir string) string {
 	// e.g. it may not be a valid import path
 
 	for _, srcDir := range ctx.BuildContext().SrcDirs() {
-		srcDir += "/"
+		srcDir += string(filepath.Separator)
 		if strings.HasPrefix(dir, srcDir) {
 			return strings.TrimPrefix(dir, srcDir)
 		}

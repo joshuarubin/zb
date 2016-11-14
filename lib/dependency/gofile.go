@@ -139,7 +139,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 		}
 
 		if !e.NoWarnTodoFixme {
-			base := e.Context.ImportPathToDir(e.ProjectImportPath) + "/"
+			base := e.Context.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
 			if strings.HasPrefix(e.Path, base) &&
 				!strings.Contains(e.Path, "vendor/") &&
 				isTodoOrFixme(buf) {
@@ -171,7 +171,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			return nil, err
 		}
 
-		prefix := filepath.Dir(e.Path) + "/"
+		prefix := filepath.Dir(e.Path) + string(filepath.Separator)
 		for _, dep := range deps {
 			e.Logger.WithFields(slog.Fields{
 				"source":       strings.TrimPrefix(dep.Path, prefix),
