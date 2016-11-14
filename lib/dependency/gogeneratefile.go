@@ -33,6 +33,10 @@ func (f GoGenerateFile) Build() error {
 	return f.GoFile.Generate()
 }
 
+func (f GoGenerateFile) Install() error {
+	return f.Build()
+}
+
 func (f GoGenerateFile) ModTime() time.Time {
 	i, err := os.Stat(f.Path)
 	if err != nil {

@@ -139,12 +139,12 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 		}
 
 		if !e.NoWarnTodoFixme {
-			base := e.Context.ImportPathToDir(e.ProjectImportPath)
+			base := e.Context.ImportPathToDir(e.ProjectImportPath) + "/"
 			if strings.HasPrefix(e.Path, base) &&
 				!strings.Contains(e.Path, "vendor/") &&
 				isTodoOrFixme(buf) {
 				e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
-					strings.TrimPrefix(e.Path, base+"/"),
+					strings.TrimPrefix(e.Path, base),
 					i,
 					strings.TrimSpace(string(buf)),
 				))
@@ -173,22 +173,10 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 
 		prefix := filepath.Dir(e.Path) + "/"
 		for _, dep := range deps {
-			files := []string{
-				dep.Path,
-				dep.Depends.Name(),
-				e.Path,
-			}
-
-			for i, file := range files {
-				if strings.HasPrefix(file, prefix) {
-					files[i] = strings.TrimPrefix(file, prefix)
-				}
-			}
-
 			e.Logger.WithFields(slog.Fields{
-				"source":       files[0],
-				"depends_on":   files[1],
-				"from_go_file": files[2],
+				"source":       strings.TrimPrefix(dep.Path, prefix),
+				"depends_on":   strings.TrimPrefix(dep.Depends.Name(), prefix),
+				"from_go_file": strings.TrimPrefix(e.Path, prefix),
 			}).Debug("found go:generate dependency")
 
 			e.dependencies = append(e.dependencies, dep)
@@ -277,7 +265,7 @@ func (e *GoFile) parseGlobs(words []string) ([]string, error) {
 func (e *GoFile) parseZBGenerate(words []string) ([]*GoGenerateFile, error) {
 	// formats to parse:
 	// 1. -patsubst %pattern %replacement glob glob... (like Make)
-	// 2. -target (basically -patsubst % word glob...) // TODO(jrubin)
+	// 2. -target (basically -patsubst % word glob...)
 	// 3. glob glob...
 
 	if words[0] == "-patsubst" {
@@ -436,6 +424,11 @@ func (e *GoFile) Buildable() bool {
 }
 
 func (e *GoFile) Build() error {
+	// noop
+	return nil
+}
+
+func (e *GoFile) Install() error {
 	// noop
 	return nil
 }

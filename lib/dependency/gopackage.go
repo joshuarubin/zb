@@ -34,7 +34,7 @@ func (pkg GoPackage) Build() error {
 
 	args := []string{"build"}
 	args = append(args, pkg.BuildArgs(pkg.Package, &pkg.GitCommit)...)
-	args = append(args, "-o", pkg.Name())
+	args = append(args, "-o", strings.TrimPrefix(pkg.Name(), pkg.SrcDir+"/"))
 	args = append(args, pkg.ImportPath)
 
 	if err := pkg.GoExec(args...); err != nil {

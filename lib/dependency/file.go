@@ -18,6 +18,11 @@ func (f File) Build() error {
 	return nil
 }
 
+func (f File) Install() error {
+	// noop
+	return nil
+}
+
 func (f File) ModTime() time.Time {
 	i, err := os.Stat(string(f))
 	if err != nil {

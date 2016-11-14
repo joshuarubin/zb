@@ -105,16 +105,22 @@ func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 		args = append(args, "-installsuffix", f.InstallSuffix)
 	}
 
-	if len(f.LDFlags) > 0 {
-		args = append(args, "-ldflags", strings.Join(f.LDFlags, " "))
-	} else if pkg != nil && pkg.IsCommand() && gitCommit != nil {
-		args = append(args, "-ldflags",
+	var ldflags []string
+
+	if pkg != nil && pkg.IsCommand() && gitCommit != nil {
+		ldflags = []string{
 			fmt.Sprintf("-X main.gitCommit=%s -X main.buildDate=%s",
 				*gitCommit,
 				time.Now().UTC().Format(dateFormat),
 			),
-		)
+		}
 	}
+
+	if len(f.LDFlags) > 0 {
+		ldflags = append(ldflags, f.LDFlags...)
+	}
+
+	args = append(args, "-ldflags", strings.Join(ldflags, " "))
 
 	if f.LinkShared {
 		args = append(args, "-linkshared")

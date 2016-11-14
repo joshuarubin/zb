@@ -134,7 +134,13 @@ func (l List) Build(tt TargetType) (int, error) {
 				continue
 			}
 
-			if err = target.Build(); err != nil {
+			if tt == TargetInstall {
+				err = target.Install()
+			} else {
+				err = target.Build()
+			}
+
+			if err != nil {
 				return err
 			}
 

@@ -67,7 +67,7 @@ func (ctx *Context) DirToImportPath(dir string) string {
 	for _, srcDir := range ctx.BuildContext().SrcDirs() {
 		srcDir += "/"
 		if strings.HasPrefix(dir, srcDir) {
-			return dir[len(srcDir):]
+			return strings.TrimPrefix(dir, srcDir)
 		}
 	}
 	return ""
