@@ -171,12 +171,26 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			return nil, err
 		}
 
+		prefix := filepath.Dir(e.Path) + "/"
 		for _, dep := range deps {
+			files := []string{
+				dep.Path,
+				dep.Depends.Name(),
+				e.Path,
+			}
+
+			for i, file := range files {
+				if strings.HasPrefix(file, prefix) {
+					files[i] = strings.TrimPrefix(file, prefix)
+				}
+			}
+
 			e.Logger.WithFields(slog.Fields{
-				"source":       dep.Path,
-				"depends_on":   dep.Depends.Name(),
-				"from_go_file": e.Path,
+				"source":       files[0],
+				"depends_on":   files[1],
+				"from_go_file": files[2],
 			}).Debug("found go:generate dependency")
+
 			e.dependencies = append(e.dependencies, dep)
 		}
 	}
@@ -263,10 +277,15 @@ func (e *GoFile) parseGlobs(words []string) ([]string, error) {
 func (e *GoFile) parseZBGenerate(words []string) ([]*GoGenerateFile, error) {
 	// formats to parse:
 	// 1. -patsubst %pattern %replacement glob glob... (like Make)
-	// 2. glob glob...
+	// 2. -target (basically -patsubst % word glob...) // TODO(jrubin)
+	// 3. glob glob...
 
 	if words[0] == "-patsubst" {
 		return e.parsePatSubst(words[1:])
+	}
+
+	if words[0] == "-target" {
+		return e.parseTarget(words[1:])
 	}
 
 	files, err := e.parseGlobs(words)
@@ -283,6 +302,33 @@ func (e *GoFile) parseZBGenerate(words []string) ([]*GoGenerateFile, error) {
 			Path:    file,
 		})
 	}
+	return deps, nil
+}
+
+func (e *GoFile) parseTarget(words []string) ([]*GoGenerateFile, error) {
+	if len(words) < 2 {
+		return nil, errors.New("invalid target")
+	}
+
+	target := words[0]
+	if !filepath.IsAbs(target) {
+		target = filepath.Join(filepath.Dir(e.Path), target)
+	}
+
+	files, err := e.parseGlobs(words[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	var deps []*GoGenerateFile
+	for _, file := range files {
+		deps = append(deps, &GoGenerateFile{
+			GoFile:  e,
+			Depends: File(file),
+			Path:    target,
+		})
+	}
+
 	return deps, nil
 }
 
