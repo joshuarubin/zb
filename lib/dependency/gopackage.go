@@ -15,7 +15,7 @@ type GoPackage struct {
 	*build.Package
 	*zbcontext.Context
 	Path              string
-	GitCommit         core.Hash
+	GitCommit         *core.Hash
 	ProjectImportPath string
 
 	dependencies []Dependency
@@ -33,7 +33,7 @@ func (pkg GoPackage) Build() error {
 	}
 
 	args := []string{"build"}
-	args = append(args, pkg.BuildArgs(pkg.Package, &pkg.GitCommit)...)
+	args = append(args, pkg.BuildArgs(pkg.Package, pkg.GitCommit)...)
 	args = append(args, "-o", strings.TrimPrefix(pkg.Name(), pkg.SrcDir+string(filepath.Separator)))
 	args = append(args, pkg.ImportPath)
 
@@ -46,7 +46,7 @@ func (pkg GoPackage) Build() error {
 
 func (pkg GoPackage) Install() error {
 	args := []string{"install"}
-	args = append(args, pkg.BuildArgs(pkg.Package, &pkg.GitCommit)...)
+	args = append(args, pkg.BuildArgs(pkg.Package, pkg.GitCommit)...)
 	args = append(args, pkg.ImportPath)
 
 	if err := pkg.GoExec(args...); err != nil {

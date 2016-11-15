@@ -3,6 +3,9 @@ package dependency
 import (
 	"reflect"
 	"sync"
+	"sync/atomic"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pkg/errors"
 
@@ -163,4 +166,87 @@ func (ts *Targets) Append(r *Targets) {
 		ts.insertNoLock(t)
 	})
 	ts.mu.Unlock()
+}
+
+type TargetFunc func(*Target) error
+
+func Each(targets []*Target, fn TargetFunc) error {
+	var group errgroup.Group
+
+	for _, t := range targets {
+		target := t
+
+		deps, err := target.Dependencies()
+		if err != nil {
+			return err
+		}
+
+		group.Go(func() error {
+			defer target.Done()
+
+			if !target.Buildable() && len(deps) == 0 {
+				return nil
+			}
+
+			target.Wait()
+
+			if !target.Buildable() {
+				return nil
+			}
+
+			return fn(target)
+		})
+	}
+
+	return group.Wait()
+}
+
+type TargetType int
+
+const (
+	TargetBuild TargetType = iota
+	TargetInstall
+	TargetGenerate
+)
+
+func Build(tt TargetType, targets []*Target) (int, error) {
+	var built uint32
+	err := Each(targets, func(target *Target) error {
+		if tt == TargetGenerate {
+			if _, ok := target.Dependency.(*GoGenerateFile); !ok {
+				// exclude all dependencies that aren't go generate files
+				return nil
+			}
+		}
+
+		deps, err := target.Dependencies()
+		if err != nil {
+			return err
+		}
+
+		// build target if any of its dependencies are newer than itself
+		for _, dep := range deps {
+			// don't use .Before since filesystem time resolution might
+			// cause files times to be within the same second
+			if !dep.ModTime().After(target.ModTime()) {
+				continue
+			}
+
+			if tt == TargetInstall {
+				err = target.Install()
+			} else {
+				err = target.Build()
+			}
+
+			if err != nil {
+				return err
+			}
+
+			atomic.AddUint32(&built, 1)
+			return nil
+		}
+
+		return nil
+	})
+	return int(built), err
 }

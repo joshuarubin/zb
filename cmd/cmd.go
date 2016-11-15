@@ -18,6 +18,7 @@ type Config struct {
 	GitCommit, BuildDate *string
 	NoWarnTodoFixme      bool
 	CacheDir             string
+	Package              bool
 }
 
 // Constructor returns a cli.Command
@@ -65,6 +66,8 @@ func bashComplete(c *cli.Context, cmds []cli.Command, flags []cli.Flag) {
 	}
 }
 
+// DefaultCacheDir returns the base directory that should be used for caching
+// data
 func DefaultCacheDir(name string) string {
 	if runtime.GOOS == "darwin" {
 		return filepath.Join(os.Getenv("HOME"), "Library", "Caches", name)

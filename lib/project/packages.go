@@ -1,6 +1,14 @@
 package project
 
-import "sort"
+import (
+	"sort"
+
+	"gopkg.in/src-d/go-git.v4/core"
+
+	"golang.org/x/sync/errgroup"
+	"jrubin.io/zb/lib/dependency"
+	"jrubin.io/zb/lib/zbcontext"
+)
 
 type Packages []*Package
 
@@ -48,4 +56,70 @@ func (p Packages) Append(r Packages) Packages {
 	}
 
 	return p
+}
+
+func (p Packages) targets(tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
+	unique := dependency.Targets{}
+	var group errgroup.Group
+
+	for _, pkg := range p {
+		pp := pkg
+		group.Go(func() error {
+			ts, err := pp.Targets(tt, projectDir, gitCommit)
+			if err != nil {
+				return err
+			}
+
+			unique.Append(ts)
+			return nil
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+	return &unique, nil
+}
+
+func (p Packages) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
+	unique, err := p.targets(tt, "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	targets := unique.TopologicalSort()
+
+	// set up the waitgroup dependencies
+	for _, t := range targets {
+		target := t
+
+		target.RequiredBy.Range(func(r *dependency.Target) {
+			r.Add(1)
+			target.OnDone(r.WaitGroup.Done)
+		})
+	}
+
+	return targets, nil
+}
+
+func (p Packages) Build(tt dependency.TargetType) (int, error) {
+	targets, err := p.Targets(tt)
+	if err != nil {
+		return 0, err
+	}
+	return dependency.Build(tt, targets)
+}
+
+func ListPackages(ctx *zbcontext.Context, paths ...string) (Packages, error) {
+	var pkgs Packages
+	importPaths := ctx.ExpandEllipsis(paths...)
+
+	for _, path := range importPaths {
+		pkg, err := NewPackage(ctx, path, ctx.SrcDir, true)
+		if err != nil {
+			return nil, err
+		}
+		pkgs.Insert(pkg)
+	}
+
+	return pkgs, nil
 }

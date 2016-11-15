@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"gopkg.in/src-d/go-git.v4/core"
+
 	"github.com/pkg/errors"
 
 	"jrubin.io/zb/lib/buildflags"
@@ -32,8 +34,8 @@ type Package struct {
 	depMap                      map[string]*Package
 }
 
-func (pkg *Package) BuildPath(p *Project) string {
-	return zbcontext.BuildPath(p.Dir, pkg.Package)
+func (pkg *Package) BuildPath(projectDir string) string {
+	return zbcontext.BuildPath(projectDir, pkg.Package)
 }
 
 func (pkg *Package) InstallPath() string {
@@ -42,51 +44,55 @@ func (pkg *Package) InstallPath() string {
 
 // BuildTarget returns the absolute path of the binary that this package
 // generates when it is built
-func (pkg *Package) BuildTarget(p *Project) *dependency.GoPackage {
+func (pkg *Package) BuildTarget(projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
 	if !pkg.IsCommand() {
-		return pkg.InstallTarget(p)
+		return pkg.InstallTarget(projectDir, gitCommit)
+	}
+
+	if projectDir == "" {
+		projectDir = pkg.Dir
 	}
 
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(p.Dir),
-		Path:              pkg.BuildPath(p),
+		ProjectImportPath: pkg.DirToImportPath(projectDir),
+		Path:              pkg.BuildPath(projectDir),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         p.GitCommit(),
+		GitCommit:         gitCommit,
 	}
 }
 
-func (pkg *Package) InstallTarget(p *Project) *dependency.GoPackage {
+func (pkg *Package) InstallTarget(projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
+	if projectDir == "" {
+		projectDir = pkg.Dir
+	}
+
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(p.Dir),
+		ProjectImportPath: pkg.DirToImportPath(projectDir),
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         p.GitCommit(),
+		GitCommit:         gitCommit,
 	}
 }
 
-type TargetType int
-
-const (
-	TargetBuild TargetType = iota
-	TargetInstall
-	TargetGenerate
-)
-
-func (pkg *Package) Targets(p *Project, tt TargetType) (*dependency.Targets, error) {
-	var fn func(*Project) *dependency.GoPackage
+func (pkg *Package) Targets(tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
+	var fn func(string, *core.Hash) *dependency.GoPackage
 
 	switch tt {
-	case TargetBuild, TargetGenerate:
+	case dependency.TargetBuild, dependency.TargetGenerate:
 		fn = pkg.BuildTarget
-	case TargetInstall:
+	case dependency.TargetInstall:
 		fn = pkg.InstallTarget
 	default:
 		panic(errors.New("unknown TargetType"))
 	}
 
-	gopkg := fn(p)
+	if projectDir == "" {
+		projectDir = pkg.Dir
+	}
+
+	gopkg := fn(projectDir, gitCommit)
 
 	queue := []*dependency.Target{dependency.NewTarget(gopkg, nil)}
 	unique := dependency.Targets{}

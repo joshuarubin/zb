@@ -40,7 +40,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
 			if pkg.IsCommand() {
-				fmt.Fprintln(w, pkg.BuildPath(p))
+				fmt.Fprintln(w, pkg.BuildPath(p.Dir))
 			}
 		}
 	}

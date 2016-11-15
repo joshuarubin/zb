@@ -13,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 	"jrubin.io/slog"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 	"jrubin.io/zb/lib/zbtest"
@@ -25,7 +26,6 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zbtest.ZBTest
-	Package bool
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
@@ -54,11 +54,6 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Name:        "l",
 				Destination: &cmd.List,
 				Usage:       "list the uncached tests it would run",
-			},
-			cli.BoolFlag{
-				Name:        "r",
-				Destination: &cmd.Package,
-				Usage:       "run tests only for the listed packages, not all packages in the projects",
 			},
 		}...),
 	}
@@ -96,15 +91,9 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) runPackages(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
-	importPaths := cmd.ExpandEllipsis(args...)
-
-	for _, path := range importPaths {
-		var pkg *project.Package
-		pkg, err = project.NewPackage(&cmd.Context, path, cmd.SrcDir, true)
-		if err != nil {
-			return
-		}
-		pkgs.Insert(pkg)
+	pkgs, err = project.ListPackages(&cmd.Context, args...)
+	if err != nil {
+		return
 	}
 
 	return cmd.buildPackagesLists(pkgs)
@@ -118,7 +107,7 @@ func (cmd *cc) runProjects(w io.Writer, args ...string) (pkgs, toRun project.Pac
 	}
 
 	// run go generate as necessary
-	if _, err = projects.Build(project.TargetGenerate); err != nil {
+	if _, err = projects.Build(dependency.TargetGenerate); err != nil {
 		return
 	}
 

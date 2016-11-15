@@ -72,13 +72,13 @@ func init() {
 	}
 	app.Flags = []cli.Flag{
 		cli.GenericFlag{
-			Name:   "log-level",
+			Name:   "log-level, l",
 			EnvVar: "LOG_LEVEL",
 			Usage:  "set log level (DEBUG, INFO, WARN, ERROR)",
 			Value:  &level,
 		},
 		cli.BoolFlag{
-			Name:        "no-warn-todo-fixme",
+			Name:        "no-warn-todo-fixme, n",
 			EnvVar:      strings.ToUpper("no_warn_todo_fixme"),
 			Usage:       "do not warn when finding " + strings.ToUpper("warn") + " or " + strings.ToUpper("fixme") + " in .go files",
 			Destination: &config.NoWarnTodoFixme,
@@ -89,6 +89,11 @@ func init() {
 			EnvVar:      "CACHE",
 			Value:       cmd.DefaultCacheDir(app.Name),
 			Usage:       "commands that cache results use this as their base directory",
+		},
+		cli.BoolFlag{
+			Name:        "package, p",
+			Destination: &config.Package,
+			Usage:       "run tests only for the listed packages, not all packages in the projects",
 		},
 	}
 

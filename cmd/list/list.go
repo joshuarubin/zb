@@ -38,6 +38,27 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
+	if cmd.Package {
+		return cmd.listPackage(w, args...)
+	}
+
+	return cmd.listProject(w, args...)
+}
+
+func (cmd *cc) listPackage(w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(&cmd.Context, args...)
+	if err != nil {
+		return err
+	}
+
+	for _, pkg := range pkgs {
+		fmt.Fprintln(w, pkg.ImportPath)
+	}
+
+	return nil
+}
+
+func (cmd *cc) listProject(w io.Writer, args ...string) error {
 	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
 		return err

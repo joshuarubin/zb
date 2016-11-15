@@ -2,7 +2,6 @@ package project
 
 import (
 	"sort"
-	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 	"jrubin.io/zb/lib/dependency"
@@ -38,7 +37,7 @@ func (l List) Exists(dir string) (bool, int) {
 	return (i < l.Len() && l[i].Dir == dir), i
 }
 
-func (l List) Targets(tt TargetType) ([]*dependency.Target, error) {
+func (l List) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
 	unique := dependency.Targets{}
 
 	var group errgroup.Group
@@ -75,80 +74,10 @@ func (l List) Targets(tt TargetType) ([]*dependency.Target, error) {
 	return targets, nil
 }
 
-func (l List) TargetsEach(tt TargetType, fn func(*dependency.Target) error) error {
+func (l List) Build(tt dependency.TargetType) (int, error) {
 	targets, err := l.Targets(tt)
 	if err != nil {
-		return err
+		return 0, err
 	}
-
-	var group errgroup.Group
-
-	for _, t := range targets {
-		target := t
-
-		deps, err := target.Dependencies()
-		if err != nil {
-			return err
-		}
-
-		group.Go(func() error {
-			defer target.Done()
-
-			if !target.Buildable() && len(deps) == 0 {
-				return nil
-			}
-
-			target.Wait()
-
-			if !target.Buildable() {
-				return nil
-			}
-
-			return fn(target)
-		})
-	}
-
-	return group.Wait()
-}
-
-func (l List) Build(tt TargetType) (int, error) {
-	var built uint32
-	err := l.TargetsEach(tt, func(target *dependency.Target) error {
-		if tt == TargetGenerate {
-			if _, ok := target.Dependency.(*dependency.GoGenerateFile); !ok {
-				// exclude all dependencies that aren't go generate files
-				return nil
-			}
-		}
-
-		deps, err := target.Dependencies()
-		if err != nil {
-			return err
-		}
-
-		// build target if any of its dependencies are newer than itself
-		for _, dep := range deps {
-			// don't use .Before since filesystem time resolution might
-			// cause files times to be within the same second
-			if !dep.ModTime().After(target.ModTime()) {
-				continue
-			}
-
-			if tt == TargetInstall {
-				err = target.Install()
-			} else {
-				err = target.Build()
-			}
-
-			if err != nil {
-				return err
-			}
-
-			atomic.AddUint32(&built, 1)
-			return nil
-		}
-
-		return nil
-	})
-	return int(built), err
+	return dependency.Build(tt, targets)
 }

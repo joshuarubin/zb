@@ -12,6 +12,7 @@ import (
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 	"jrubin.io/zb/lib/zblint"
@@ -59,21 +60,48 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
+	if _, err := exec.LookPath("gometalinter"); err != nil {
+		return err
+	}
+
+	if cmd.Package {
+		return cmd.runPackage(w, args...)
+	}
+
+	return cmd.runProject(w, args...)
+}
+
+func (cmd *cc) runPackage(w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(&cmd.Context, args...)
+	if err != nil {
+		return err
+	}
+
+	// run go generate as necessary
+	if _, err = pkgs.Build(dependency.TargetGenerate); err != nil {
+		return err
+	}
+
+	pkgs, toRun, err := cmd.buildListsPackages(pkgs)
+	if err != nil {
+		return err
+	}
+
+	return cmd.exec(w, pkgs, toRun)
+}
+
+func (cmd *cc) runProject(w io.Writer, args ...string) error {
 	projects, err := project.Projects(&cmd.Context, args...)
 	if err != nil {
 		return err
 	}
 
 	// run go generate as necessary
-	if _, err = projects.Build(project.TargetGenerate); err != nil {
+	if _, err = projects.Build(dependency.TargetGenerate); err != nil {
 		return err
 	}
 
-	if _, err = exec.LookPath("gometalinter"); err != nil {
-		return err
-	}
-
-	pkgs, toRun, err := cmd.buildLists(projects)
+	pkgs, toRun, err := cmd.buildListsProjects(projects)
 	if err != nil {
 		return err
 	}
@@ -118,24 +146,39 @@ func (cmd *cc) exec(w io.Writer, pkgs, toRun project.Packages) error {
 	return nil
 }
 
-func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, err error) {
-	for _, proj := range projects {
-		for _, pkg := range proj.Packages {
-			if pkg.IsVendored {
-				continue
-			}
-
-			pkgs = append(pkgs, pkg)
-
-			var foundResult bool
-			if foundResult, err = cmd.HaveResult(pkg); err != nil {
-				return
-			}
-
-			if !foundResult {
-				toRun = append(toRun, pkg)
-			}
+func (cmd *cc) buildListsPackages(in project.Packages) (pkgs, toRun project.Packages, err error) {
+	for _, pkg := range in {
+		if pkg.IsVendored {
+			continue
 		}
+
+		pkgs = append(pkgs, pkg)
+
+		var foundResult bool
+		if foundResult, err = cmd.HaveResult(pkg); err != nil {
+			return
+		}
+
+		if !foundResult {
+			toRun = append(toRun, pkg)
+		}
+	}
+
+	sort.Sort(&pkgs)
+	sort.Sort(&toRun)
+
+	return
+}
+
+func (cmd *cc) buildListsProjects(projects project.List) (pkgs, toRun project.Packages, err error) {
+	for _, proj := range projects {
+		var p, r project.Packages
+		p, r, err = cmd.buildListsPackages(proj.Packages)
+		if err != nil {
+			return
+		}
+		pkgs = pkgs.Append(p)
+		toRun = toRun.Append(r)
 	}
 
 	sort.Sort(&pkgs)

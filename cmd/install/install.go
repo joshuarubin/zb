@@ -3,6 +3,7 @@ package install
 import (
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
@@ -22,7 +23,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Usage:     "compile and install all of the packages in each of the projects",
 		ArgsUsage: "[build flags] [packages]",
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.Args()...)
+			return Run(&cmd.Context, dependency.TargetInstall, c.Args()...)
 		},
 		Flags: append(cmd.BuildFlags(),
 			cli.StringFlag{
@@ -39,20 +40,41 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 	}
 }
 
-func (cmd *cc) run(args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
-	if err != nil {
-		return err
+func Run(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) error {
+	var err error
+	var built int
+
+	if ctx.Package {
+		built, err = installPackage(ctx, tt, args...)
+	} else {
+		built, err = installProject(ctx, tt, args...)
 	}
 
-	built, err := projects.Build(project.TargetInstall)
 	if err != nil {
 		return err
 	}
 
 	if built == 0 {
-		cmd.Logger.Info("nothing to install")
+		ctx.Logger.Info("nothing to install")
 	}
 
 	return nil
+}
+
+func installPackage(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
+	pkgs, err := project.ListPackages(ctx, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	return pkgs.Build(tt)
+}
+
+func installProject(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
+	projects, err := project.Projects(ctx, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	return projects.Build(tt)
 }

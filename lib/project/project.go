@@ -3,8 +3,6 @@ package project
 import (
 	"path/filepath"
 
-	"golang.org/x/sync/errgroup"
-
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/core"
 
@@ -61,41 +59,25 @@ func (p *Project) fillPackages() error {
 	return nil
 }
 
-func (p *Project) Targets(tt TargetType) (*dependency.Targets, error) {
-	unique := dependency.Targets{}
-	var group errgroup.Group
-	for _, pkg := range p.Packages {
-		pp := pkg
-		group.Go(func() error {
-			ts, err := pp.Targets(p, tt)
-			if err != nil {
-				return err
-			}
-
-			unique.Append(ts)
-			return nil
-		})
-	}
-	if err := group.Wait(); err != nil {
-		return nil, err
-	}
-	return &unique, nil
+func (p *Project) Targets(tt dependency.TargetType) (*dependency.Targets, error) {
+	return p.Packages.targets(tt, p.Dir, p.GitCommit())
 }
 
-func (p *Project) GitCommit() core.Hash {
+func (p *Project) GitCommit() *core.Hash {
 	dir := filepath.Join(p.Dir, ".git")
 
 	repo, err := git.NewFilesystemRepository(dir)
 	if err != nil {
 		p.Logger.WithError(err).Warn("could not determine git commit")
-		return core.Hash{}
+		return nil
 	}
 
 	head, err := repo.Head()
 	if err != nil {
 		p.Logger.WithError(err).Warn("could not determine git commit")
-		return core.Hash{}
+		return nil
 	}
 
-	return head.Hash()
+	h := head.Hash()
+	return &h
 }

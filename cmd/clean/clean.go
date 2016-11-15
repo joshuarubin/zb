@@ -43,7 +43,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
 			if pkg.IsCommand() {
-				path := strings.TrimPrefix(pkg.BuildPath(p), prefix)
+				path := strings.TrimPrefix(pkg.BuildPath(p.Dir), prefix)
 				logger := cmd.Logger.WithField("path", path)
 
 				err := os.Remove(path)

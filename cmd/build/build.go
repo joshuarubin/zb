@@ -3,7 +3,8 @@ package build
 import (
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/project"
+	"jrubin.io/zb/cmd/install"
+	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
@@ -22,7 +23,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Usage:     "build all of the packages in each of the projects",
 		ArgsUsage: "[build flags] [packages]",
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.Args()...)
+			return install.Run(&cmd.Context, dependency.TargetBuild, c.Args()...)
 		},
 		Flags: append(cmd.BuildFlags(),
 			cli.StringFlag{
@@ -37,22 +38,4 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 			},
 		),
 	}
-}
-
-func (cmd *cc) run(args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
-	if err != nil {
-		return err
-	}
-
-	built, err := projects.Build(project.TargetBuild)
-	if err != nil {
-		return err
-	}
-
-	if built == 0 {
-		cmd.Logger.Info("nothing to build")
-	}
-
-	return nil
 }

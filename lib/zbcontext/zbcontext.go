@@ -226,14 +226,19 @@ func GitDir(value string) string {
 	}
 }
 
-func BuildPath(projectDir string, pkg *build.Package) string {
+func BuildPath(baseDir string, pkg *build.Package) string {
 	if !pkg.IsCommand() {
 		return InstallPath(pkg)
 	}
 
+	if baseDir == "" {
+		baseDir = pkg.Dir
+	}
+
 	name := filepath.Base(pkg.Dir)
 
-	path := filepath.Join(projectDir, name)
+	path := filepath.Join(baseDir, name)
+
 	if pkg.Dir == path {
 		path = filepath.Join(pkg.Dir, name)
 	}
