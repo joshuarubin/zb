@@ -29,7 +29,7 @@ var (
 	// populated by zb build ldflags
 	gitCommit, buildDate string
 
-	level = slog.WarnLevel
+	level = slog.InfoLevel
 	app   = cli.NewApp()
 
 	config = cmd.Config{

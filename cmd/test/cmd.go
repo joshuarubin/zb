@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 
 	"golang.org/x/sync/errgroup"
 
@@ -26,6 +25,7 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zbtest.ZBTest
+	Package bool
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
@@ -55,6 +55,11 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Destination: &cmd.List,
 				Usage:       "list the uncached tests it would run",
 			},
+			cli.BoolFlag{
+				Name:        "r",
+				Destination: &cmd.Package,
+				Usage:       "run tests only for the listed packages, not all packages in the projects",
+			},
 		}...),
 	}
 }
@@ -67,17 +72,15 @@ func (cmd *cc) setup() error {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
-	if err != nil {
-		return err
+	var pkgs, toRun project.Packages
+	var err error
+
+	if cmd.Package {
+		pkgs, toRun, err = cmd.runPackages(w, args...)
+	} else {
+		pkgs, toRun, err = cmd.runProjects(w, args...)
 	}
 
-	// run go generate as necessary
-	if _, err = projects.Build(project.TargetGenerate); err != nil {
-		return err
-	}
-
-	pkgs, toRun, err := cmd.buildLists(projects)
 	if err != nil {
 		return err
 	}
@@ -89,36 +92,76 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 		return nil
 	}
 
-	return cmd.runOneTest(w, pkgs, toRun)
+	return cmd.runTest(w, pkgs, toRun)
 }
 
-func (cmd *cc) buildLists(projects project.List) (pkgs, toRun project.Packages, err error) {
-	for _, proj := range projects {
-		for _, pkg := range proj.Packages {
-			if pkg.IsVendored {
-				continue
-			}
+func (cmd *cc) runPackages(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
+	importPaths := cmd.ExpandEllipsis(args...)
 
-			pkgs = append(pkgs, pkg)
-
-			var foundResult bool
-			if foundResult, err = cmd.HaveResult(pkg); err != nil {
-				return
-			}
-
-			if !foundResult {
-				toRun = append(toRun, pkg)
-			}
+	for _, path := range importPaths {
+		var pkg *project.Package
+		pkg, err = project.NewPackage(&cmd.Context, path, cmd.SrcDir, true)
+		if err != nil {
+			return
 		}
+		pkgs.Insert(pkg)
 	}
 
-	sort.Sort(&pkgs)
-	sort.Sort(&toRun)
+	return cmd.buildPackagesLists(pkgs)
+}
+
+func (cmd *cc) runProjects(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
+	var projects project.List
+	projects, err = project.Projects(&cmd.Context, args...)
+	if err != nil {
+		return
+	}
+
+	// run go generate as necessary
+	if _, err = projects.Build(project.TargetGenerate); err != nil {
+		return
+	}
+
+	return cmd.buildProjectsLists(projects)
+}
+
+func (cmd *cc) buildPackagesLists(in project.Packages) (pkgs, toRun project.Packages, err error) {
+	for _, pkg := range in {
+		if pkg.IsVendored {
+			continue
+		}
+
+		pkgs.Insert(pkg)
+
+		var foundResult bool
+		if foundResult, err = cmd.HaveResult(pkg); err != nil {
+			return
+		}
+
+		if !foundResult {
+			toRun.Insert(pkg)
+		}
+	}
 
 	return
 }
 
-func (cmd *cc) runOneTest(w io.Writer, pkgs, toRun project.Packages) error {
+func (cmd *cc) buildProjectsLists(projects project.List) (pkgs, toRun project.Packages, err error) {
+	for _, proj := range projects {
+		var p, r project.Packages
+		p, r, err = cmd.buildPackagesLists(proj.Packages)
+		if err != nil {
+			return
+		}
+
+		pkgs = pkgs.Append(p)
+		toRun = toRun.Append(r)
+	}
+
+	return
+}
+
+func (cmd *cc) runTest(w io.Writer, pkgs, toRun project.Packages) error {
 	var ecmd *exec.Cmd
 	pr, pw := io.Pipe()
 	if len(toRun) > 0 {

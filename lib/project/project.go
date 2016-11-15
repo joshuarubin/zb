@@ -2,7 +2,6 @@ package project
 
 import (
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -19,7 +18,7 @@ import (
 type Project struct {
 	*zbcontext.Context
 	Dir      string
-	Packages []*Package
+	Packages Packages
 
 	filled bool
 }
@@ -39,17 +38,15 @@ func (p *Project) fillPackages() error {
 	// base should always be a fully qualified package import, never an absolute
 	// or relative path
 
-	list := (*packageList)(&p.Packages)
-
 	importPaths := p.ExpandEllipsis(filepath.Join(base, "..."))
 	for _, importPath := range importPaths {
 		if dir := p.ImportPathToDir(importPath); dir != "" {
-			if ok, _ := list.Exists(dir); ok {
+			if ok, _ := p.Packages.Exists(dir); ok {
 				continue
 			}
 		}
 
-		pkg, err := p.newPackage(importPath, p.Dir, true)
+		pkg, err := NewPackage(p.Context, importPath, p.Dir, true)
 		if err != nil {
 			return err
 		}
@@ -58,7 +55,7 @@ func (p *Project) fillPackages() error {
 			continue
 		}
 
-		list.Insert(pkg)
+		p.Packages.Insert(pkg)
 	}
 
 	return nil
@@ -70,7 +67,7 @@ func (p *Project) Targets(tt TargetType) (*dependency.Targets, error) {
 	for _, pkg := range p.Packages {
 		pp := pkg
 		group.Go(func() error {
-			ts, err := pp.Targets(tt)
+			ts, err := pp.Targets(p, tt)
 			if err != nil {
 				return err
 			}
@@ -101,30 +98,4 @@ func (p *Project) GitCommit() core.Hash {
 	}
 
 	return head.Hash()
-}
-
-var cache = map[string]*Package{}
-
-func (p *Project) newPackage(importPath, srcDir string, includeTestImports bool) (*Package, error) {
-	if pkg, ok := cache[importPath]; ok {
-		return pkg, nil
-	}
-
-	pkg, err := p.Import(importPath, srcDir)
-	if err != nil {
-		return nil, err
-	}
-
-	isVendored := strings.Contains(pkg.ImportPath, "vendor/")
-
-	ret := &Package{
-		Package:            pkg,
-		Project:            p,
-		IsVendored:         isVendored,
-		includeTestImports: !isVendored && includeTestImports,
-	}
-
-	cache[importPath] = ret
-
-	return ret, nil
 }

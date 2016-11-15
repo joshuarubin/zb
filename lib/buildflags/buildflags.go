@@ -120,7 +120,9 @@ func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 		ldflags = append(ldflags, f.LDFlags...)
 	}
 
-	args = append(args, "-ldflags", strings.Join(ldflags, " "))
+	if len(ldflags) > 0 {
+		args = append(args, "-ldflags", strings.Join(ldflags, " "))
+	}
 
 	if f.LinkShared {
 		args = append(args, "-linkshared")

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -20,7 +21,7 @@ import (
 // A Package is a single go Package
 type Package struct {
 	*build.Package
-	*Project
+	*zbcontext.Context
 
 	IsVendored bool
 
@@ -31,24 +32,8 @@ type Package struct {
 	depMap                      map[string]*Package
 }
 
-type Packages []*Package
-
-var _ sort.Interface = (*Packages)(nil)
-
-func (p *Packages) Len() int {
-	return len(*p)
-}
-
-func (p *Packages) Less(i, j int) bool {
-	return (*p)[i].ImportPath < (*p)[j].ImportPath
-}
-
-func (p *Packages) Swap(i, j int) {
-	(*p)[i], (*p)[j] = (*p)[j], (*p)[i]
-}
-
-func (pkg *Package) BuildPath() string {
-	return zbcontext.BuildPath(pkg.Project.Dir, pkg.Package)
+func (pkg *Package) BuildPath(p *Project) string {
+	return zbcontext.BuildPath(p.Dir, pkg.Package)
 }
 
 func (pkg *Package) InstallPath() string {
@@ -57,27 +42,27 @@ func (pkg *Package) InstallPath() string {
 
 // BuildTarget returns the absolute path of the binary that this package
 // generates when it is built
-func (pkg *Package) BuildTarget() *dependency.GoPackage {
+func (pkg *Package) BuildTarget(p *Project) *dependency.GoPackage {
 	if !pkg.IsCommand() {
-		return pkg.InstallTarget()
+		return pkg.InstallTarget(p)
 	}
 
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(pkg.Project.Dir),
-		Path:              pkg.BuildPath(),
+		ProjectImportPath: pkg.DirToImportPath(p.Dir),
+		Path:              pkg.BuildPath(p),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         pkg.GitCommit(),
+		GitCommit:         p.GitCommit(),
 	}
 }
 
-func (pkg *Package) InstallTarget() *dependency.GoPackage {
+func (pkg *Package) InstallTarget(p *Project) *dependency.GoPackage {
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(pkg.Project.Dir),
+		ProjectImportPath: pkg.DirToImportPath(p.Dir),
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         pkg.GitCommit(),
+		GitCommit:         p.GitCommit(),
 	}
 }
 
@@ -89,8 +74,8 @@ const (
 	TargetGenerate
 )
 
-func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
-	var fn func() *dependency.GoPackage
+func (pkg *Package) Targets(p *Project, tt TargetType) (*dependency.Targets, error) {
+	var fn func(*Project) *dependency.GoPackage
 
 	switch tt {
 	case TargetBuild, TargetGenerate:
@@ -101,7 +86,7 @@ func (pkg *Package) Targets(tt TargetType) (*dependency.Targets, error) {
 		panic(errors.New("unknown TargetType"))
 	}
 
-	gopkg := fn()
+	gopkg := fn(p)
 
 	queue := []*dependency.Target{dependency.NewTarget(gopkg, nil)}
 	unique := dependency.Targets{}
@@ -165,7 +150,7 @@ func (pkg *Package) Deps() ([]*Package, error) {
 				continue
 			}
 
-			dep, err := pkg.newPackage(path, p.Package.Dir, false)
+			dep, err := NewPackage(p.Context, path, p.Package.Dir, false)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error importing package: %s", path)
 			}
@@ -348,4 +333,32 @@ func hashFiles(h io.Writer, dir string, files []string) error {
 		}
 	}
 	return nil
+}
+
+var cache = map[string]*Package{}
+
+func NewPackage(ctx *zbcontext.Context, importPath, srcDir string, includeTestImports bool) (*Package, error) {
+	importPath = ctx.NormalizeImportPath(importPath)
+
+	if pkg, ok := cache[importPath]; ok {
+		return pkg, nil
+	}
+
+	pkg, err := ctx.Import(importPath, srcDir)
+	if err != nil {
+		return nil, err
+	}
+
+	isVendored := strings.Contains(pkg.ImportPath, "vendor/")
+
+	ret := &Package{
+		Context:            ctx,
+		Package:            pkg,
+		IsVendored:         isVendored,
+		includeTestImports: !isVendored && includeTestImports,
+	}
+
+	cache[importPath] = ret
+
+	return ret, nil
 }

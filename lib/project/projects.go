@@ -2,7 +2,6 @@ package project
 
 import (
 	"go/build"
-	"path/filepath"
 
 	"github.com/pkg/errors"
 
@@ -22,20 +21,8 @@ func Projects(ctx *zbcontext.Context, args ...string) (List, error) {
 	// don't use range, using importPaths as a queue
 	for len(importPaths) > 0 {
 		// pop the queue
-		importPath := importPaths[0]
+		importPath := ctx.NormalizeImportPath(importPaths[0])
 		importPaths = importPaths[1:]
-
-		// convert local imports to import paths
-		if build.IsLocalImport(importPath) {
-			// convert relative path to absolute
-			if !filepath.IsAbs(importPath) {
-				importPath = filepath.Join(ctx.SrcDir, importPath)
-			}
-
-			if found := ctx.DirToImportPath(importPath); found != "" {
-				importPath = found
-			}
-		}
 
 		if dir := ctx.ImportPathToDir(importPath); dir != "" {
 			if ok, _ := projects.Exists(dir); ok {
@@ -81,7 +68,7 @@ func project(ctx *zbcontext.Context, importPath string) (*Project, error) {
 		Packages: make([]*Package, 1),
 	}
 
-	pkg, err := p.newPackage(importPath, ctx.SrcDir, true)
+	pkg, err := NewPackage(ctx, importPath, ctx.SrcDir, true)
 	if err != nil {
 		return nil, err
 	}

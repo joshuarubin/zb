@@ -41,6 +41,25 @@ func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
 	return pkg, nil
 }
 
+func (ctx *Context) NormalizeImportPath(importPath string) string {
+	if !build.IsLocalImport(importPath) {
+		return importPath
+	}
+
+	// convert local imports to import paths
+
+	if !filepath.IsAbs(importPath) {
+		// convert relative path to absolute
+		importPath = filepath.Join(ctx.SrcDir, importPath)
+	}
+
+	if found := ctx.DirToImportPath(importPath); found != "" {
+		return found
+	}
+
+	return importPath
+}
+
 func (ctx *Context) NoGoImportPathToProjectImportPaths(importPath string) []string {
 	dir := ctx.ImportPathToProjectDir(importPath)
 	if dir == "" {
