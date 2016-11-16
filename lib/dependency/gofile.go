@@ -171,12 +171,29 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			return nil, err
 		}
 
-		prefix := filepath.Dir(e.Path) + string(filepath.Separator)
 		for _, dep := range deps {
+			var source string
+			source, err = filepath.Rel(e.SrcDir, dep.Path)
+			if err != nil {
+				source = dep.Path
+			}
+
+			var dependsOn string
+			dependsOn, err = filepath.Rel(e.SrcDir, dep.Depends.Name())
+			if err != nil {
+				dependsOn = dep.Depends.Name()
+			}
+
+			var fromGo string
+			fromGo, err = filepath.Rel(e.SrcDir, e.Path)
+			if err != nil {
+				fromGo = e.Path
+			}
+
 			e.Logger.WithFields(slog.Fields{
-				"source":       strings.TrimPrefix(dep.Path, prefix),
-				"depends_on":   strings.TrimPrefix(dep.Depends.Name(), prefix),
-				"from_go_file": strings.TrimPrefix(e.Path, prefix),
+				"source":       source,
+				"depends_on":   dependsOn,
+				"from_go_file": fromGo,
 			}).Debug("found go:generate dependency")
 
 			e.dependencies = append(e.dependencies, dep)
