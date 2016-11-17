@@ -209,6 +209,18 @@ const (
 	TargetGenerate
 )
 
+func (tt TargetType) String() string {
+	switch tt {
+	case TargetBuild:
+		return "build"
+	case TargetInstall:
+		return "install"
+	case TargetGenerate:
+		return "generate"
+	}
+	return ""
+}
+
 func Build(tt TargetType, targets []*Target) (int, error) {
 	var built uint32
 	err := Each(targets, func(target *Target) error {

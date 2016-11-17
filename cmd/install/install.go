@@ -55,7 +55,7 @@ func Run(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) error
 	}
 
 	if built == 0 {
-		ctx.Logger.Info("nothing to install")
+		ctx.Logger.Info("nothing to " + tt.String())
 	}
 
 	return nil
