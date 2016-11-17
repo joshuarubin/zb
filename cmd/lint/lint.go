@@ -23,6 +23,7 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zblint.ZBLint
+	Generate bool
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
@@ -55,6 +56,11 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Usage:       "match gometalinter output exactly, don't use logger",
 				Destination: &cmd.Raw,
 			},
+			cli.BoolFlag{
+				Name:        "generate, g",
+				Usage:       "run go generate as necessary before execution",
+				Destination: &cmd.Generate,
+			},
 		),
 	}
 }
@@ -78,8 +84,10 @@ func (cmd *cc) runPackage(w io.Writer, args ...string) error {
 	}
 
 	// run go generate as necessary
-	if _, err = pkgs.Build(dependency.TargetGenerate); err != nil {
-		return err
+	if cmd.Generate {
+		if _, err = pkgs.Build(dependency.TargetGenerate); err != nil {
+			return err
+		}
 	}
 
 	pkgs, toRun, err := cmd.buildListsPackages(pkgs)
@@ -97,8 +105,10 @@ func (cmd *cc) runProject(w io.Writer, args ...string) error {
 	}
 
 	// run go generate as necessary
-	if _, err = projects.Build(dependency.TargetGenerate); err != nil {
-		return err
+	if cmd.Generate {
+		if _, err = projects.Build(dependency.TargetGenerate); err != nil {
+			return err
+		}
 	}
 
 	pkgs, toRun, err := cmd.buildListsProjects(projects)

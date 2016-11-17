@@ -26,6 +26,7 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zbtest.ZBTest
+	Generate bool
 }
 
 func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
@@ -54,6 +55,11 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Name:        "l",
 				Destination: &cmd.List,
 				Usage:       "list the uncached tests it would run",
+			},
+			cli.BoolFlag{
+				Name:        "generate, g",
+				Usage:       "run go generate as necessary before execution",
+				Destination: &cmd.Generate,
 			},
 		}...),
 	}
@@ -107,8 +113,10 @@ func (cmd *cc) runProjects(w io.Writer, args ...string) (pkgs, toRun project.Pac
 	}
 
 	// run go generate as necessary
-	if _, err = projects.Build(dependency.TargetGenerate); err != nil {
-		return
+	if cmd.Generate {
+		if _, err = projects.Build(dependency.TargetGenerate); err != nil {
+			return
+		}
 	}
 
 	return cmd.buildProjectsLists(projects)
