@@ -52,11 +52,6 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Value: &cmd.IgnoreSuffixes,
 			},
 			cli.BoolFlag{
-				Name:        "raw",
-				Usage:       "match gometalinter output exactly, don't use logger",
-				Destination: &cmd.Raw,
-			},
-			cli.BoolFlag{
 				Name:        "generate, g",
 				Usage:       "run go generate as necessary before execution",
 				Destination: &cmd.Generate,
@@ -207,9 +202,7 @@ func (cmd *cc) runLinter(w io.Writer, path, cacheFile string) (int, error) {
 	args := cmd.LintArgs()
 	args = append(args, path)
 
-	if !cmd.Raw {
-		cmd.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
-	}
+	cmd.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
 
 	pr, pw := io.Pipe()
 

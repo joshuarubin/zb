@@ -11,7 +11,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/urfave/cli"
-	"jrubin.io/slog"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
@@ -203,22 +202,16 @@ func (cmd *cc) runTest(w io.Writer, pkgs, toRun project.Packages) error {
 		return nil
 	})
 
-	ew := cmd.Logger.Writer(slog.ErrorLevel)
-	defer func() { _ = ew.Close() }() // nosec
-
-	ow := cmd.Logger.Writer(slog.InfoLevel)
-	defer func() { _ = ow.Close() }() // nosec
-
-	r := bufio.NewReader(pr)
+	r := bufio.NewReader(io.TeeReader(pr, w))
 
 	for _, pkg := range pkgs {
 		if len(toRun) > 0 && toRun[0] == pkg {
-			if err := cmd.ReadResult(ow, ew, r, pkg); err != nil {
+			if err := cmd.ReadResult(r, pkg); err != nil {
 				return err
 			}
 			toRun = toRun[1:]
 		} else {
-			passed, err := cmd.ShowResult(ow, ew, pkg)
+			passed, err := cmd.ShowResult(w, pkg)
 			if err != nil {
 				return err
 			}

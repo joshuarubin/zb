@@ -66,27 +66,20 @@ type StringReader interface {
 	ReadString(byte) (string, error)
 }
 
-func (t *ZBTest) ReadResult(ow, ew io.Writer, r StringReader, p *project.Package) error {
+func (t *ZBTest) ReadResult(r StringReader, p *project.Package) error {
 	file, err := t.CacheFile(p)
 	if err != nil {
 		return err
 	}
 
-	w := ow
-	var buf, obuf bytes.Buffer
-
-	defer func(w *io.Writer) { _, _ = obuf.WriteTo(*w) }(&w) // nosec
+	var buf bytes.Buffer
 
 	for eof := false; !eof; {
 		line, err := r.ReadString('\n')
-		_, oerr := obuf.WriteString(line)
 		if err == io.EOF {
 			eof = true
 		} else if err != nil {
 			return err
-		}
-		if oerr != nil {
-			return oerr
 		}
 
 		m := endRE.FindStringSubmatch(line)
@@ -95,10 +88,6 @@ func (t *ZBTest) ReadResult(ow, ew io.Writer, r StringReader, p *project.Package
 				return err
 			}
 			continue
-		}
-
-		if m[1] == fail {
-			w = ew
 		}
 
 		fmt.Fprintf(&buf, "%s (cached)\n", strings.TrimSuffix(line, "\n"))
@@ -117,7 +106,7 @@ func (t *ZBTest) ReadResult(ow, ew io.Writer, r StringReader, p *project.Package
 	return nil
 }
 
-func (t *ZBTest) ShowResult(ow, ew io.Writer, p *project.Package) (bool, error) {
+func (t *ZBTest) ShowResult(w io.Writer, p *project.Package) (bool, error) {
 	testHash, err := p.TestHash(&t.TestFlagsData)
 	if err != nil {
 		return false, err
@@ -141,10 +130,10 @@ func (t *ZBTest) ShowResult(ow, ew io.Writer, p *project.Package) (bool, error) 
 	i := bytes.LastIndex(check, []byte{'\n'})
 	line := check[i+1:]
 	if bytes.HasPrefix(line, []byte(fail)) {
-		_, err = ew.Write(data)
+		_, err = w.Write(data)
 		return false, err
 	}
 
-	_, err = ow.Write(data)
+	_, err = w.Write(data)
 	return true, err
 }

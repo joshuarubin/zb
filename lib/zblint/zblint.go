@@ -2,6 +2,7 @@ package zblint
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/urfave/cli"
 
-	"jrubin.io/slog"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
@@ -20,7 +20,6 @@ type ZBLint struct {
 	zbcontext.Context
 	NoMissingComment bool
 	IgnoreSuffixes   cli.StringSlice
-	Raw              bool
 
 	ignoreSuffixMap map[string]struct{}
 }
@@ -35,10 +34,6 @@ var DefaultIgnoreSuffixes = []string{
 }
 
 func (l *ZBLint) LintSetup() {
-	if l.Raw {
-		l.NoWarnTodoFixme = true
-	}
-
 	if len(l.IgnoreSuffixes) == 0 {
 		l.IgnoreSuffixes = DefaultIgnoreSuffixes
 	}
@@ -129,32 +124,11 @@ const (
 	LintLinter
 )
 
-func (l *ZBLint) readCommon(c io.Writer, pr io.Reader, w io.Writer) (bool, error) {
+func (l *ZBLint) readCommon(w io.Writer, pr io.Reader, fd io.Writer) (bool, error) {
 	r := bufio.NewReader(pr)
+	defer func() { _, _ = io.Copy(w, r) }() // nosec
 
-	var ew, ww, iw io.WriteCloser
-	var def io.Writer
-
-	if l.Raw {
-		defer func() {
-			_, _ = r.WriteTo(c) // nosec
-		}()
-		def = c
-	} else {
-		ew = l.Logger.Writer(slog.ErrorLevel).Prefix("← ")
-		ww = l.Logger.Writer(slog.WarnLevel).Prefix("← ")
-		iw = l.Logger.Writer(slog.InfoLevel).Prefix("← ")
-
-		defer func() {
-			_ = ew.Close()       // nosec
-			_ = ww.Close()       // nosec
-			_, _ = r.WriteTo(iw) // nosec
-			_ = iw.Close()       // nosec
-		}()
-
-		def = iw
-	}
-
+	var buf bytes.Buffer
 	var foundLines bool
 
 LOOP:
@@ -168,10 +142,10 @@ LOOP:
 
 		m := levelRE.FindStringSubmatch(line)
 		if m == nil {
-			if w != nil {
-				fmt.Fprintf(w, "%s", line)
+			if fd != nil {
+				fmt.Fprintf(&buf, "%s", line)
 			}
-			if _, err := def.Write([]byte(line)); err != nil {
+			if _, err := w.Write([]byte(line)); err != nil {
 				return foundLines, err
 			}
 			continue
@@ -179,8 +153,8 @@ LOOP:
 
 		foundLines = true
 
-		if w != nil {
-			fmt.Fprintf(w, "%s (cached)\n", strings.TrimSuffix(line, "\n"))
+		if fd != nil {
+			fmt.Fprintf(&buf, "%s (cached)\n", strings.TrimSuffix(line, "\n"))
 		}
 
 		if l.NoMissingComment &&
@@ -195,17 +169,13 @@ LOOP:
 			}
 		}
 
-		w := def
-		if !l.Raw {
-			switch m[LintLevel] {
-			case "warning":
-				w = ww
-			case "error":
-				w = ew
-			}
-		}
-
 		if _, err := w.Write([]byte(line)); err != nil {
+			return foundLines, err
+		}
+	}
+
+	if fd != nil {
+		if _, err := buf.WriteTo(fd); err != nil {
 			return foundLines, err
 		}
 	}
