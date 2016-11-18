@@ -77,5 +77,5 @@ _{{ .AppName }}_autocomplete() {
      return 0
  }
 
- complete -F _{{ .AppName }}_autocomplete {{ .AppName }}
+ complete -o default -F _{{ .AppName }}_autocomplete {{ .AppName }}
 `
