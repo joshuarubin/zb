@@ -140,14 +140,15 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 
 		if !e.NoWarnTodoFixme {
 			base := e.Context.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
-			if strings.HasPrefix(e.Path, base) &&
-				!strings.Contains(e.Path, "vendor/") &&
-				isTodoOrFixme(buf) {
-				e.Logger.Warn(fmt.Sprintf("%s:%d:%s",
-					strings.TrimPrefix(e.Path, base),
-					i,
-					strings.TrimSpace(string(buf)),
-				))
+
+			if strings.HasPrefix(e.Path, base) && !strings.Contains(e.Path, "vendor/") && isTodoOrFixme(buf) {
+				file := e.Path
+				var rel string
+				if rel, err = filepath.Rel(e.SrcDir, e.Path); err == nil && len(rel) < len(file) {
+					file = rel
+				}
+
+				e.Logger.Warn(fmt.Sprintf("%s:%d:%s", file, i, strings.TrimSpace(string(buf))))
 			}
 		}
 
