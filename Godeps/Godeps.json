@@ -17,8 +17,8 @@
 		},
 		{
 			"ImportPath": "github.com/urfave/cli",
-			"Comment": "v1.18.0-89-g3272baf",
-			"Rev": "3272baf434b471d349ddd0f51d07ab11a8cb9228"
+			"Comment": "v1.19.0-6-gb6061c4",
+			"Rev": "b6061c464d493dd94985211595687c862a0dd0bc"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/curve25519",
