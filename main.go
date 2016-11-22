@@ -23,7 +23,8 @@ import (
 // TODO(jrubin) fix all lint issues
 // TODO(jrubin) test all the things
 // TODO(jrubin) detect import cycles
-// TODO(jrubin) README.md and other documentation
+// TODO(jrubin) godoc documentation
+// TODO(jrubin) vendor? (wrap goimports)
 
 var (
 	// populated by zb build ldflags
