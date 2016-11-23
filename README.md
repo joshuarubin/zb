@@ -33,7 +33,7 @@ Many go repositories have multiple packages. It is often necessary to build/inst
 
 `go generate` is great, but sometimes it needs to be executed before a build. Forgetting to execute `go generate` can be a major problem if, for example, new values were added to a `stringer`.
 
-`zb` does it's own dependency calculation and can identify `go generate` dependencies provided an additional annotation is also present.
+`zb` does its own dependency calculation and can identify `go generate` dependencies provided an additional annotation is also present.
 
 The following formats are available to define dependencies of `go generate`
 
