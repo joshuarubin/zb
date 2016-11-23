@@ -114,7 +114,7 @@ func ListPackages(ctx *zbcontext.Context, paths ...string) (Packages, error) {
 	importPaths := ctx.ExpandEllipsis(paths...)
 
 	for _, path := range importPaths {
-		pkg, err := NewPackage(ctx, path, ctx.SrcDir, true)
+		pkg, err := NewPackage(ctx, path, zbcontext.CWD, true)
 		if err != nil {
 			return nil, err
 		}

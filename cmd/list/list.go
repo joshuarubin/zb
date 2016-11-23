@@ -6,6 +6,7 @@ import (
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
@@ -14,11 +15,12 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
+	*zbcontext.Context
+	buildflags.Data
 }
 
-func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 
 	return cli.Command{
 		Name:      "list",
@@ -27,7 +29,7 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
 		},
-		Flags: append(cmd.BuildFlags(),
+		Flags: append(cmd.BuildFlags(false),
 			cli.BoolFlag{
 				Name:        "vendor",
 				Usage:       "exclude vendor directories",
@@ -38,6 +40,8 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
+	cmd.Context.BuildContext = cmd.Data.BuildContext()
+
 	if cmd.Package {
 		return cmd.listPackage(w, args...)
 	}
@@ -46,7 +50,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) listPackage(w io.Writer, args ...string) error {
-	pkgs, err := project.ListPackages(&cmd.Context, args...)
+	pkgs, err := project.ListPackages(cmd.Context, args...)
 	if err != nil {
 		return err
 	}
@@ -59,7 +63,7 @@ func (cmd *cc) listPackage(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) listProject(w io.Writer, args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
+	projects, err := project.Projects(cmd.Context, args...)
 	if err != nil {
 		return err
 	}

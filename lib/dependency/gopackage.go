@@ -7,15 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/core"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
 type GoPackage struct {
 	*build.Package
 	*zbcontext.Context
+	BuildArgs         []string
 	Path              string
-	GitCommit         *core.Hash
 	ProjectImportPath string
 
 	dependencies []Dependency
@@ -23,18 +22,23 @@ type GoPackage struct {
 
 var _ Dependency = (*GoPackage)(nil)
 
-func (pkg GoPackage) Name() string {
+func (pkg *GoPackage) Name() string {
 	return pkg.Path
 }
 
-func (pkg GoPackage) Build() error {
+func (pkg *GoPackage) Build() error {
 	if !pkg.IsCommand() {
 		return pkg.Install()
 	}
 
+	path := pkg.Name()
+	if rel, err := filepath.Rel(zbcontext.CWD, path); err == nil {
+		path = rel
+	}
+
 	args := []string{"build"}
-	args = append(args, pkg.BuildArgs(pkg.Package, pkg.GitCommit)...)
-	args = append(args, "-o", strings.TrimPrefix(pkg.Name(), pkg.SrcDir+string(filepath.Separator)))
+	args = append(args, pkg.BuildArgs...)
+	args = append(args, "-o", path)
 	args = append(args, pkg.ImportPath)
 
 	if err := pkg.GoExec(args...); err != nil {
@@ -44,19 +48,19 @@ func (pkg GoPackage) Build() error {
 	return pkg.Touch(pkg.Name())
 }
 
-func (pkg GoPackage) Install() error {
+func (pkg *GoPackage) Install() error {
 	args := []string{"install"}
-	args = append(args, pkg.BuildArgs(pkg.Package, pkg.GitCommit)...)
+	args = append(args, pkg.BuildArgs...)
 	args = append(args, pkg.ImportPath)
 
 	if err := pkg.GoExec(args...); err != nil {
 		return err
 	}
 
-	return pkg.Touch(zbcontext.InstallPath(pkg.Package))
+	return pkg.Touch(pkg.Name())
 }
 
-func (pkg GoPackage) ModTime() time.Time {
+func (pkg *GoPackage) ModTime() time.Time {
 	i, err := os.Stat(pkg.Path)
 	if err != nil {
 		return time.Time{}
@@ -65,7 +69,7 @@ func (pkg GoPackage) ModTime() time.Time {
 	return i.ModTime()
 }
 
-func (pkg GoPackage) files() []Dependency {
+func (pkg *GoPackage) files() []Dependency {
 	var files []string
 
 	files = append(files, pkg.GoFiles...)
@@ -84,13 +88,13 @@ func (pkg GoPackage) files() []Dependency {
 
 	gofiles := make([]Dependency, len(files))
 	for i, f := range files {
-		gofiles[i] = NewGoFile(pkg.Context, pkg.ProjectImportPath, filepath.Join(pkg.Dir, f))
+		gofiles[i] = NewGoFile(pkg, filepath.Join(pkg.Dir, f))
 	}
 
 	return gofiles
 }
 
-func (pkg GoPackage) packages() ([]Dependency, error) {
+func (pkg *GoPackage) packages() ([]Dependency, error) {
 	var pkgs []Dependency
 
 	imports := pkg.Imports
@@ -111,6 +115,7 @@ func (pkg GoPackage) packages() ([]Dependency, error) {
 			Path:              p.PkgObj,
 			Package:           p,
 			Context:           pkg.Context,
+			BuildArgs:         pkg.BuildArgs,
 		})
 	}
 

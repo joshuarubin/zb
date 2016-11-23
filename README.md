@@ -94,7 +94,7 @@ Delegates functionality to [`gometalinter`](https://github.com/alecthomas/gometa
 
 The `-n` flag can be used to hide `golint` warnings about missing comments.
 
-Since dependency calculation can sometimes add a non-trivial amount of time to the `zb lint` command, `go generate` will not be executed by default. Use the `--generate, -g` flag to enable `go generate` as necessary.
+Since dependency calculation can sometimes add a non-trivial amount of time to the `zb lint` command, `go generate` will not be executed.
 
 Files matching certain suffixes will be excluded from the results. This list can be modified with the `--ignore-suffix` flag. By default files with the following suffixes will be excluded:
 
@@ -116,7 +116,7 @@ Use the `-f` flag to treat the test results as uncached, forcing the tests to be
 
 To see which tests would be executed (because their results are not-cached or the `-f` flag was provided), use the `-l` flag.
 
-Since dependency calculation can sometimes add a non-trivial amount of time to the `zb test` command, `go generate` will not be executed by default. Use the `--generate, -g` flag to enable `go generate` as necessary.
+Since dependency calculation can sometimes add a non-trivial amount of time to the `zb test` command, `go generate` will not be executed.
 
 ### complete
 

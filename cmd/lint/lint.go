@@ -12,7 +12,6 @@ import (
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 	"jrubin.io/zb/lib/zblint"
@@ -23,11 +22,10 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zblint.ZBLint
-	Generate bool
 }
 
-func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 
 	return cli.Command{
 		Name:      "lint",
@@ -51,11 +49,6 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(zblint.DefaultIgnoreSuffixes, ",")),
 				Value: &cmd.IgnoreSuffixes,
 			},
-			cli.BoolFlag{
-				Name:        "generate, g",
-				Usage:       "run go generate as necessary before execution",
-				Destination: &cmd.Generate,
-			},
 		),
 	}
 }
@@ -73,16 +66,9 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) runPackage(w io.Writer, args ...string) error {
-	pkgs, err := project.ListPackages(&cmd.Context, args...)
+	pkgs, err := project.ListPackages(cmd.Context, args...)
 	if err != nil {
 		return err
-	}
-
-	// run go generate as necessary
-	if cmd.Generate {
-		if _, err = pkgs.Build(dependency.TargetGenerate); err != nil {
-			return err
-		}
 	}
 
 	pkgs, toRun, err := cmd.buildListsPackages(pkgs)
@@ -94,16 +80,9 @@ func (cmd *cc) runPackage(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) runProject(w io.Writer, args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
+	projects, err := project.Projects(cmd.Context, args...)
 	if err != nil {
 		return err
-	}
-
-	// run go generate as necessary
-	if cmd.Generate {
-		if _, err = projects.Build(dependency.TargetGenerate); err != nil {
-			return err
-		}
 	}
 
 	pkgs, toRun, err := cmd.buildListsProjects(projects)

@@ -39,6 +39,7 @@ type Data struct {
 	PkgDir        string
 	Tags          stringsFlag
 	ToolExec      stringsFlag
+	GenerateRun   string
 
 	context *build.Context
 }
@@ -140,6 +141,10 @@ func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 		args = append(args, "-toolexec", strings.Join(f.ToolExec, " "))
 	}
 
+	if f.GenerateRun != "" {
+		args = append(args, "-run", f.GenerateRun)
+	}
+
 	return args
 }
 
@@ -165,8 +170,8 @@ func (f *Data) BuildContext() *build.Context {
 }
 
 // BuildFlags returns cli.Flags to use with cli.Command
-func (f *Data) BuildFlags() []cli.Flag {
-	return []cli.Flag{
+func (f *Data) BuildFlags(run bool) []cli.Flag {
+	ret := []cli.Flag{
 		cli.BoolFlag{
 			Name:        "a",
 			Destination: &f.A,
@@ -321,4 +326,19 @@ func (f *Data) BuildFlags() []cli.Flag {
 			/path/to/asm <arguments for asm>'.`,
 		},
 	}
+
+	if run {
+		ret = append(ret, cli.StringFlag{
+			Name: "run",
+			Usage: `
+
+				passed to "go generate" if non-empty, specifies a regular
+				expression to select directives whose full original source text
+				(excluding any trailing spaces and final newline) matches the
+				expression.`,
+			Destination: &f.GenerateRun,
+		})
+	}
+
+	return ret
 }

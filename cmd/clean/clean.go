@@ -4,9 +4,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/urfave/cli"
+	"jrubin.io/slog"
 	"jrubin.io/zb/cmd"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
@@ -16,11 +16,11 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
+	*zbcontext.Context
 }
 
-func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 	cmd.ExcludeVendor = true
 
 	return cli.Command{
@@ -34,34 +34,64 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
+	if cmd.Package {
+		return cmd.cleanPackage(w, args...)
+	}
+
+	return cmd.cleanProject(w, args...)
+}
+
+func (cmd *cc) cleanPackage(w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(cmd.Context, args...)
 	if err != nil {
 		return err
 	}
 
-	prefix := cmd.SrcDir + string(filepath.Separator)
+	for _, pkg := range pkgs {
+		cleanPackage(&cmd.Logger, pkg.Dir, pkg)
+	}
+
+	return nil
+}
+
+func (cmd *cc) cleanProject(w io.Writer, args ...string) error {
+	projects, err := project.Projects(cmd.Context, args...)
+	if err != nil {
+		return err
+	}
+
 	for _, p := range projects {
 		for _, pkg := range p.Packages {
-			if pkg.IsCommand() {
-				path := strings.TrimPrefix(pkg.BuildPath(p.Dir), prefix)
-				logger := cmd.Logger.WithField("path", path)
-
-				err := os.Remove(path)
-
-				if err == nil {
-					logger.Info("removed")
-					continue
-				}
-
-				if os.IsNotExist(err) {
-					logger.Info(err.(*os.PathError).Err.Error())
-					continue
-				}
-
-				logger.WithError(err).Error("error removing executable")
-			}
+			cleanPackage(&cmd.Logger, p.Dir, pkg)
 		}
 	}
 
 	return nil
+}
+
+func cleanPackage(logger slog.Interface, dir string, pkg *project.Package) {
+	if !pkg.IsCommand() {
+		return
+	}
+
+	path := pkg.BuildPath(dir)
+	logger = logger.WithField("path", path)
+
+	if rel, err := filepath.Rel(zbcontext.CWD, pkg.BuildPath(dir)); err == nil {
+		logger = logger.WithField("path", rel)
+	}
+
+	err := os.Remove(path)
+
+	if err == nil {
+		logger.Info("removed")
+		return
+	}
+
+	if os.IsNotExist(err) {
+		logger.Info(err.(*os.PathError).Err.Error())
+		return
+	}
+
+	logger.WithError(err).Error("error removing executable")
 }

@@ -333,7 +333,7 @@ func (f *TestFlagsData) TestFlags() []cli.Flag {
 		Hidden:      true,
 	})
 
-	return append(f.BuildFlags(), flags...)
+	return append(f.BuildFlags(false), flags...)
 }
 
 func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *core.Hash) []string {

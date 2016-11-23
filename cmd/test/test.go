@@ -6,13 +6,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 	"jrubin.io/zb/lib/zbtest"
@@ -25,19 +23,16 @@ var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
 	zbtest.ZBTest
-	Generate bool
+	List bool
 }
 
-func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 
 	return cli.Command{
 		Name:      "test",
 		Usage:     "test all of the packages in each of the projects and cache the results",
 		ArgsUsage: "[build/test flags] [packages]",
-		Before: func(c *cli.Context) error {
-			return cmd.setup()
-		},
 		Action: func(c *cli.Context) error {
 			return cmd.run(c.App.Writer, c.Args()...)
 		},
@@ -55,23 +50,13 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 				Destination: &cmd.List,
 				Usage:       "list the uncached tests it would run",
 			},
-			cli.BoolFlag{
-				Name:        "generate, g",
-				Usage:       "run go generate as necessary before execution",
-				Destination: &cmd.Generate,
-			},
 		}...),
 	}
 }
 
-func (cmd *cc) setup() error {
-	if filepath.Base(cmd.CacheDir) != "test" {
-		cmd.CacheDir = filepath.Join(cmd.CacheDir, "test")
-	}
-	return nil
-}
-
 func (cmd *cc) run(w io.Writer, args ...string) error {
+	cmd.TestSetup()
+
 	var pkgs, toRun project.Packages
 	var err error
 
@@ -96,7 +81,7 @@ func (cmd *cc) run(w io.Writer, args ...string) error {
 }
 
 func (cmd *cc) runPackages(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
-	pkgs, err = project.ListPackages(&cmd.Context, args...)
+	pkgs, err = project.ListPackages(cmd.Context, args...)
 	if err != nil {
 		return
 	}
@@ -106,16 +91,9 @@ func (cmd *cc) runPackages(w io.Writer, args ...string) (pkgs, toRun project.Pac
 
 func (cmd *cc) runProjects(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
 	var projects project.List
-	projects, err = project.Projects(&cmd.Context, args...)
+	projects, err = project.Projects(cmd.Context, args...)
 	if err != nil {
 		return
-	}
-
-	// run go generate as necessary
-	if cmd.Generate {
-		if _, err = projects.Build(dependency.TargetGenerate); err != nil {
-			return
-		}
 	}
 
 	return cmd.buildProjectsLists(projects)

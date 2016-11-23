@@ -7,23 +7,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/urfave/cli"
-	"jrubin.io/slog"
-)
+	"jrubin.io/zb/lib/zbcontext"
 
-// Config is passed into each command's New Constructor
-type Config struct {
-	Logger               slog.Logger
-	SrcDir               string
-	GitCommit, BuildDate *string
-	NoWarnTodoFixme      bool
-	CacheDir             string
-	Package              bool
-}
+	"github.com/urfave/cli"
+)
 
 // Constructor returns a cli.Command
 type Constructor interface {
-	New(app *cli.App, config *Config) cli.Command
+	New(app *cli.App, ctx *zbcontext.Context) cli.Command
 }
 
 // BashComplete prints words suitable for completion of the App

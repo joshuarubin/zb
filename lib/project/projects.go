@@ -68,7 +68,7 @@ func project(ctx *zbcontext.Context, importPath string) (*Project, error) {
 		Packages: make([]*Package, 1),
 	}
 
-	pkg, err := NewPackage(ctx, importPath, ctx.SrcDir, true)
+	pkg, err := NewPackage(ctx, importPath, zbcontext.CWD, true)
 	if err != nil {
 		return nil, err
 	}

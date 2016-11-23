@@ -18,7 +18,8 @@ type Project struct {
 	Dir      string
 	Packages Packages
 
-	filled bool
+	gitCommit *core.Hash
+	filled    bool
 }
 
 func (p *Project) fillPackages() error {
@@ -64,6 +65,10 @@ func (p *Project) Targets(tt dependency.TargetType) (*dependency.Targets, error)
 }
 
 func (p *Project) GitCommit() *core.Hash {
+	if p.gitCommit != nil {
+		return p.gitCommit
+	}
+
 	dir := filepath.Join(p.Dir, ".git")
 
 	repo, err := git.NewFilesystemRepository(dir)
@@ -79,5 +84,6 @@ func (p *Project) GitCommit() *core.Hash {
 	}
 
 	h := head.Hash()
-	return &h
+	p.gitCommit = &h
+	return p.gitCommit
 }

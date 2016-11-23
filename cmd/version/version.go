@@ -6,18 +6,19 @@ import (
 
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 // Cmd is the version command
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	*cmd.Config
+	*zbcontext.Context
 	Short bool
 }
 
-func (cmd *cc) New(app *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(app *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 
 	return cli.Command{
 		Name:   "version",

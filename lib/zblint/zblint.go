@@ -12,18 +12,23 @@ import (
 
 	"github.com/urfave/cli"
 
+	"jrubin.io/zb/lib/lintflags"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
+// ZBLint provides methods for working with cached lint result files
 type ZBLint struct {
-	zbcontext.Context
+	*zbcontext.Context
+	lintflags.Data
 	NoMissingComment bool
 	IgnoreSuffixes   cli.StringSlice
 
 	ignoreSuffixMap map[string]struct{}
 }
 
+// DefaultIgnoreSuffixes lists the file suffixes for which lint results will be
+// filtered out
 var DefaultIgnoreSuffixes = []string{
 	".pb.go",
 	".pb.gw.go",
@@ -33,6 +38,8 @@ var DefaultIgnoreSuffixes = []string{
 	"static.go",
 }
 
+// LintSetup must be called before other methods to complete the configuration
+// from the context
 func (l *ZBLint) LintSetup() {
 	if len(l.IgnoreSuffixes) == 0 {
 		l.IgnoreSuffixes = DefaultIgnoreSuffixes
@@ -52,6 +59,7 @@ func (l *ZBLint) LintSetup() {
 	}
 }
 
+// CacheFile returns the location of the lint cache file for a given package
 func (l *ZBLint) CacheFile(p *project.Package) (string, error) {
 	lintHash, err := p.LintHash(&l.Data)
 	if err != nil {
@@ -65,19 +73,9 @@ func (l *ZBLint) CacheFile(p *project.Package) (string, error) {
 	), nil
 }
 
-const cycle = "cycle"
-
+// HaveResult checks to see if a lint result is available for a given package
 func (l *ZBLint) HaveResult(p *project.Package) (bool, error) {
 	if l.Data.Force {
-		return false, nil
-	}
-
-	hash, err := p.Hash()
-	if err != nil {
-		return false, err
-	}
-
-	if hash == cycle {
 		return false, nil
 	}
 
@@ -90,6 +88,8 @@ func (l *ZBLint) HaveResult(p *project.Package) (bool, error) {
 	return err == nil && fi.Mode().IsRegular(), nil
 }
 
+// ReadResult reads lint results from the Reader and writes the unfiltered data
+// to the file and the filtered data to the Writer
 func (l *ZBLint) ReadResult(w io.Writer, pr io.Reader, file string) error {
 	if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
 		return err
@@ -183,6 +183,8 @@ LOOP:
 	return foundLines, nil
 }
 
+// ShowResult reads data from cacheFile and writes the filtered data to the
+// Writer
 func (l *ZBLint) ShowResult(w io.Writer, cacheFile string) (bool, error) {
 	fd, err := os.Open(cacheFile)
 	if err != nil {

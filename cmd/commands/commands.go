@@ -14,11 +14,11 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
+	*zbcontext.Context
 }
 
-func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
-	cmd.Config = config
+func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+	cmd.Context = ctx
 	cmd.ExcludeVendor = true
 
 	return cli.Command{
@@ -32,7 +32,30 @@ func (cmd *cc) New(_ *cli.App, config *cmd.Config) cli.Command {
 }
 
 func (cmd *cc) run(w io.Writer, args ...string) error {
-	projects, err := project.Projects(&cmd.Context, args...)
+	if cmd.Package {
+		return cmd.commandsPackage(w, args...)
+	}
+
+	return cmd.commandsProject(w, args...)
+}
+
+func (cmd *cc) commandsPackage(w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(cmd.Context, args...)
+	if err != nil {
+		return err
+	}
+
+	for _, pkg := range pkgs {
+		if pkg.IsCommand() {
+			fmt.Fprintln(w, pkg.BuildPath(pkg.Dir))
+		}
+	}
+
+	return nil
+}
+
+func (cmd *cc) commandsProject(w io.Writer, args ...string) error {
+	projects, err := project.Projects(cmd.Context, args...)
 	if err != nil {
 		return err
 	}

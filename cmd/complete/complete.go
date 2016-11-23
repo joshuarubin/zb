@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 // Cmd is the complete command
@@ -28,7 +29,7 @@ type cc struct {
 	Zsh      shell
 }
 
-func (cmd *cc) New(app *cli.App, _ *cmd.Config) cli.Command {
+func (cmd *cc) New(app *cli.App, _ *zbcontext.Context) cli.Command {
 	cmd.Bash = bash
 	cmd.Zsh = zsh
 	cmd.AppName = app.Name

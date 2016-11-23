@@ -10,21 +10,29 @@ import (
 	"regexp"
 	"strings"
 
+	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/project"
 	"jrubin.io/zb/lib/zbcontext"
 )
 
+// ZBTest provides methods for working with cached test result files
 type ZBTest struct {
-	zbcontext.Context
+	*zbcontext.Context
+	buildflags.TestFlagsData
+	Force bool
 }
 
-const (
-	cycle = "cycle"
-	fail  = "FAIL"
-)
+func (t *ZBTest) TestSetup() {
+	if filepath.Base(t.CacheDir) != "test" {
+		t.CacheDir = filepath.Join(t.CacheDir, "test")
+	}
+	t.BuildArger = &t.TestFlagsData
+	t.BuildContext = t.TestFlagsData.BuildContext()
+}
 
 var endRE = regexp.MustCompile(`\A(\?|ok|FAIL) {0,3}\t([^ \t]+)[ \t]([0-9.]+s|\[.*\])\n\z`)
 
+// CacheFile returns the location of the test cache file for a given package
 func (t *ZBTest) CacheFile(p *project.Package) (string, error) {
 	testHash, err := p.TestHash(&t.TestFlagsData)
 	if err != nil {
@@ -38,17 +46,9 @@ func (t *ZBTest) CacheFile(p *project.Package) (string, error) {
 	), nil
 }
 
+// HaveResult checks to see if a test result is available for a given package
 func (t *ZBTest) HaveResult(p *project.Package) (bool, error) {
 	if t.Force {
-		return false, nil
-	}
-
-	hash, err := p.Hash()
-	if err != nil {
-		return false, err
-	}
-
-	if hash == cycle {
 		return false, nil
 	}
 
@@ -61,11 +61,14 @@ func (t *ZBTest) HaveResult(p *project.Package) (bool, error) {
 	return err == nil && fi.Mode().IsRegular(), nil
 }
 
+// StringReader is satisfied by bufio.Reader
 type StringReader interface {
 	io.Reader
 	ReadString(byte) (string, error)
 }
 
+// ReadResult from the StringReader and write it to the CacheFile for the
+// given package
 func (t *ZBTest) ReadResult(r StringReader, p *project.Package) error {
 	file, err := t.CacheFile(p)
 	if err != nil {
@@ -106,16 +109,9 @@ func (t *ZBTest) ReadResult(r StringReader, p *project.Package) error {
 	return nil
 }
 
+// ShowResult reads the CacheFile for the given package and writes it to the
+// Writer
 func (t *ZBTest) ShowResult(w io.Writer, p *project.Package) (bool, error) {
-	testHash, err := p.TestHash(&t.TestFlagsData)
-	if err != nil {
-		return false, err
-	}
-
-	if testHash == "cycle" {
-		return false, nil
-	}
-
 	file, err := t.CacheFile(p)
 	if err != nil {
 		return false, err
@@ -129,7 +125,8 @@ func (t *ZBTest) ShowResult(w io.Writer, p *project.Package) (bool, error) {
 	check := bytes.TrimSpace(data)
 	i := bytes.LastIndex(check, []byte{'\n'})
 	line := check[i+1:]
-	if bytes.HasPrefix(line, []byte(fail)) {
+
+	if bytes.HasPrefix(line, []byte("FAIL")) {
 		_, err = w.Write(data)
 		return false, err
 	}

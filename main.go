@@ -18,6 +18,7 @@ import (
 	"jrubin.io/zb/cmd/list"
 	"jrubin.io/zb/cmd/test"
 	"jrubin.io/zb/cmd/version"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 // TODO(jrubin) fix all lint issues
@@ -33,7 +34,7 @@ var (
 	level = slog.InfoLevel
 	app   = cli.NewApp()
 
-	config = cmd.Config{
+	ctx = zbcontext.Context{
 		GitCommit: &gitCommit,
 		BuildDate: &buildDate,
 	}
@@ -52,12 +53,6 @@ var subcommands = []cmd.Constructor{
 }
 
 func init() {
-	var err error
-	config.SrcDir, err = os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
 	app.Name = "zb"
 	app.HideVersion = true
 	app.Version = "0.1.0"
@@ -82,24 +77,24 @@ func init() {
 			Name:        "no-warn-todo-fixme, n",
 			EnvVar:      strings.ToUpper("no_warn_todo_fixme"),
 			Usage:       "do not warn when finding " + strings.ToUpper("warn") + " or " + strings.ToUpper("fixme") + " in .go files",
-			Destination: &config.NoWarnTodoFixme,
+			Destination: &ctx.NoWarnTodoFixme,
 		},
 		cli.StringFlag{
 			Name:        "cache",
-			Destination: &config.CacheDir,
+			Destination: &ctx.CacheDir,
 			EnvVar:      "CACHE",
 			Value:       cmd.DefaultCacheDir(app.Name),
 			Usage:       "commands that cache results use this as their base directory",
 		},
 		cli.BoolFlag{
 			Name:        "package, p",
-			Destination: &config.Package,
+			Destination: &ctx.Package,
 			Usage:       "run tests only for the listed packages, not all packages in the projects",
 		},
 	}
 
 	for _, sc := range subcommands {
-		c := sc.New(app, &config)
+		c := sc.New(app, &ctx)
 		c.Before = wrapFn(c.Before)
 		c.Action = wrapFn(c.Action)
 		c.After = wrapFn(c.After)
@@ -115,7 +110,7 @@ func main() {
 }
 
 func setup() {
-	config.Logger.RegisterHandler(level, &text.Handler{
+	ctx.Logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
 	})

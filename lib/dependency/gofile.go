@@ -21,6 +21,7 @@ var _ Dependency = (*GoFile)(nil)
 
 type GoFile struct {
 	*zbcontext.Context
+	BuildArgs         []string
 	Path              string
 	ProjectImportPath string
 
@@ -31,7 +32,7 @@ type GoFile struct {
 var goFileCache = map[string]*GoFile{}
 var goFileCacheMu sync.RWMutex
 
-func NewGoFile(ctx *zbcontext.Context, projectimportPath, path string) *GoFile {
+func NewGoFile(pkg *GoPackage, path string) *GoFile {
 	goFileCacheMu.RLock()
 
 	if f, ok := goFileCache[path]; ok {
@@ -49,9 +50,10 @@ func NewGoFile(ctx *zbcontext.Context, projectimportPath, path string) *GoFile {
 	}
 
 	f := &GoFile{
-		Context:           ctx,
+		Context:           pkg.Context,
+		BuildArgs:         pkg.BuildArgs,
 		Path:              path,
-		ProjectImportPath: projectimportPath,
+		ProjectImportPath: pkg.ProjectImportPath,
 	}
 
 	goFileCache[path] = f
@@ -139,12 +141,12 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 		}
 
 		if !e.NoWarnTodoFixme {
-			base := e.Context.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
+			base := e.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
 
 			if strings.HasPrefix(e.Path, base) && !strings.Contains(e.Path, "vendor/") && isTodoOrFixme(buf) {
 				file := e.Path
 				var rel string
-				if rel, err = filepath.Rel(e.SrcDir, e.Path); err == nil && len(rel) < len(file) {
+				if rel, err = filepath.Rel(zbcontext.CWD, e.Path); err == nil && len(rel) < len(file) {
 					file = rel
 				}
 
@@ -174,19 +176,19 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 
 		for _, dep := range deps {
 			var source string
-			source, err = filepath.Rel(e.SrcDir, dep.Path)
+			source, err = filepath.Rel(zbcontext.CWD, dep.Path)
 			if err != nil {
 				source = dep.Path
 			}
 
 			var dependsOn string
-			dependsOn, err = filepath.Rel(e.SrcDir, dep.Depends.Name())
+			dependsOn, err = filepath.Rel(zbcontext.CWD, dep.Depends.Name())
 			if err != nil {
 				dependsOn = dep.Depends.Name()
 			}
 
 			var fromGo string
-			fromGo, err = filepath.Rel(e.SrcDir, e.Path)
+			fromGo, err = filepath.Rel(zbcontext.CWD, e.Path)
 			if err != nil {
 				fromGo = e.Path
 			}
@@ -453,10 +455,7 @@ func (e *GoFile) Install() error {
 
 func (e *GoFile) Generate() error {
 	args := []string{"generate"}
-	if e.GenerateRun != "" {
-		args = append(args, "-run", e.GenerateRun)
-	}
-	args = append(args, e.BuildArgs(nil, nil)...)
+	args = append(args, e.BuildArgs...)
 	args = append(args, e.Path)
 
 	err := e.GoExec(args...)

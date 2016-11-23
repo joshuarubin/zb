@@ -58,7 +58,7 @@ func (pkg *Package) BuildTarget(projectDir string, gitCommit *core.Hash) *depend
 		Path:              pkg.BuildPath(projectDir),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         gitCommit,
+		BuildArgs:         pkg.BuildArgs(pkg.Package, gitCommit),
 	}
 }
 
@@ -72,7 +72,7 @@ func (pkg *Package) InstallTarget(projectDir string, gitCommit *core.Hash) *depe
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
 		Context:           pkg.Context,
-		GitCommit:         gitCommit,
+		BuildArgs:         pkg.BuildArgs(pkg.Package, gitCommit),
 	}
 }
 

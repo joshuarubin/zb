@@ -12,33 +12,64 @@ import (
 	"syscall"
 	"time"
 
+	"gopkg.in/src-d/go-git.v4/core"
+
 	"github.com/urfave/cli"
 
 	"jrubin.io/slog"
-	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/buildflags"
 	"jrubin.io/zb/lib/ellipsis"
-	"jrubin.io/zb/lib/lintflags"
 )
+
+type BuildArger interface {
+	BuildArgs(*build.Package, *core.Hash) []string
+}
 
 // Context for package related commands
 type Context struct {
-	buildflags.TestFlagsData
-	lintflags.Data
-	*cmd.Config
+	Logger               slog.Logger
+	GitCommit, BuildDate *string
+	NoWarnTodoFixme      bool
+	CacheDir             string
+	Package              bool
+	BuildContext         *build.Context
+	BuildArger
+
 	ExcludeVendor bool
-	GenerateRun   string
-	Force         bool
-	List          bool
 }
 
+// Import returns details about the Go package named by the import path,
+// interpreting local import paths relative to the srcDir directory.
+// If the path is a local import path naming a package that can be imported
+// using a standard import path, the returned package will set p.ImportPath
+// to that path.
+//
+// In the directory containing the package, .go, .c, .h, and .s files are
+// considered part of the package except for:
+//
+//	- .go files in package documentation
+//	- files starting with _ or . (likely editor temporary files)
+//	- files with build constraints not satisfied by the context
+//
+// If an error occurs, Import returns a non-nil error and a non-nil
+// *Package containing partial information.
 func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
-	pkg, err := ctx.BuildContext().Import(path, srcDir, build.ImportComment)
-	if err != nil {
-		return nil, err
-	}
+	return ctx.buildContext().Import(path, srcDir, build.ImportComment)
+}
 
-	return pkg, nil
+func (ctx *Context) buildContext() *build.Context {
+	if ctx.BuildContext != nil {
+		return ctx.BuildContext
+	}
+	return &build.Default
+}
+
+var CWD string
+
+func init() {
+	var err error
+	if CWD, err = os.Getwd(); err != nil {
+		panic(err)
+	}
 }
 
 func (ctx *Context) NormalizeImportPath(importPath string) string {
@@ -50,7 +81,7 @@ func (ctx *Context) NormalizeImportPath(importPath string) string {
 
 	if !filepath.IsAbs(importPath) {
 		// convert relative path to absolute
-		importPath = filepath.Join(ctx.SrcDir, importPath)
+		importPath = filepath.Join(CWD, importPath)
 	}
 
 	if found := ctx.DirToImportPath(importPath); found != "" {
@@ -86,7 +117,7 @@ func (ctx *Context) DirToImportPath(dir string) string {
 	// this will return a/b even if there are no .go files in it
 	// e.g. it may not be a valid import path
 
-	for _, srcDir := range ctx.BuildContext().SrcDirs() {
+	for _, srcDir := range ctx.buildContext().SrcDirs() {
 		srcDir += string(filepath.Separator)
 		if strings.HasPrefix(dir, srcDir) {
 			return strings.TrimPrefix(dir, srcDir)
@@ -95,9 +126,9 @@ func (ctx *Context) DirToImportPath(dir string) string {
 		// this can happen if the project dir is outside the $GOPATH but
 		// includes its own `src` dir that is in the $GOPATH
 		if strings.HasPrefix(srcDir, dir+string(filepath.Separator)) {
-			// return the relative path to it from cwd
+			// return the relative path to it from CWD
 			// this is necessary since the ellipsis can't expand absolute paths
-			rel, err := filepath.Rel(ctx.SrcDir, srcDir)
+			rel, err := filepath.Rel(CWD, srcDir)
 			if err == nil {
 				return rel
 			}
@@ -203,7 +234,7 @@ func (ctx *Context) ImportPathToProjectDir(importPath string) string {
 func (ctx *Context) ImportPathToDir(importPath string) string {
 	// can't handle ellipsis (...), but does not require .go files to exist either
 
-	for _, srcDir := range ctx.BuildContext().SrcDirs() {
+	for _, srcDir := range ctx.buildContext().SrcDirs() {
 		dir := filepath.Join(srcDir, importPath)
 		info, err := os.Stat(dir)
 		if err != nil || !info.IsDir() {
@@ -215,7 +246,7 @@ func (ctx *Context) ImportPathToDir(importPath string) string {
 }
 
 func (ctx *Context) ExpandEllipsis(args ...string) []string {
-	return ellipsis.Expand(ctx.BuildContext(), &ctx.Logger, args...)
+	return ellipsis.Expand(ctx.buildContext(), &ctx.Logger, args...)
 }
 
 // GitDir checks the directory value for the presence of .git and will walk up
