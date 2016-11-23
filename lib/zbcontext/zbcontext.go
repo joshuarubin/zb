@@ -69,6 +69,9 @@ func (ctx *Context) NoGoImportPathToProjectImportPaths(importPath string) []stri
 	// found project dir, now convert it back to an import path so
 	// we can use ellipsis
 	importPath = ctx.DirToImportPath(dir)
+	if importPath == "" {
+		return nil
+	}
 
 	// add the ellipsis
 	importPath = filepath.Join(importPath, "...")
@@ -87,6 +90,17 @@ func (ctx *Context) DirToImportPath(dir string) string {
 		srcDir += string(filepath.Separator)
 		if strings.HasPrefix(dir, srcDir) {
 			return strings.TrimPrefix(dir, srcDir)
+		}
+
+		// this can happen if the project dir is outside the $GOPATH but
+		// includes its own `src` dir that is in the $GOPATH
+		if strings.HasPrefix(srcDir, dir+string(filepath.Separator)) {
+			// return the relative path to it from cwd
+			// this is necessary since the ellipsis can't expand absolute paths
+			rel, err := filepath.Rel(ctx.SrcDir, srcDir)
+			if err == nil {
+				return rel
+			}
 		}
 	}
 	return ""
