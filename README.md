@@ -176,9 +176,9 @@ Causes `zb` to execute only on the explicitly listed packages and not on all pac
 
 ## Still Planned
 
-* Support for other version control systems [#2](https://github.com/joshuarubin/zb/issues/2)
-* Complete all `godoc` documentation [#3](https://github.com/joshuarubin/zb/issues/3)
-* Add comprehensive testing [#4](https://github.com/joshuarubin/zb/issues/4)
-* Detect import cycles in dependency calculation [#5](https://github.com/joshuarubin/zb/issues/5)
-* Wrap [`govendor`](https://github.com/kardianos/govendor) in an opinionated way [#6](https://github.com/joshuarubin/zb/issues/5)
-* Setup continuous integration [#7](https://github.com/joshuarubin/zb/issues/7)
+* Support for other version control systems [[#2](https://github.com/joshuarubin/zb/issues/2)]
+* Complete all `godoc` documentation [[#3](https://github.com/joshuarubin/zb/issues/3)]
+* Add comprehensive testing [[#4](https://github.com/joshuarubin/zb/issues/4)]
+* Detect import cycles in dependency calculation [[#5](https://github.com/joshuarubin/zb/issues/5)]
+* Wrap [`govendor`](https://github.com/kardianos/govendor) in an opinionated way [[#6](https://github.com/joshuarubin/zb/issues/5)]
+* Setup continuous integration [[#7](https://github.com/joshuarubin/zb/issues/7)]
