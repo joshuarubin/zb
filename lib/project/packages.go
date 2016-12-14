@@ -109,7 +109,7 @@ func (p Packages) Build(tt dependency.TargetType) (int, error) {
 	return dependency.Build(tt, targets)
 }
 
-func ListPackages(ctx *zbcontext.Context, paths ...string) (Packages, error) {
+func ListPackages(ctx zbcontext.Context, paths ...string) (Packages, error) {
 	var pkgs Packages
 	importPaths := ctx.ExpandEllipsis(paths...)
 

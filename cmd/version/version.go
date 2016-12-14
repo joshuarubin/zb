@@ -13,11 +13,11 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	*zbcontext.Context
+	zbcontext.Context
 	Short bool
 }
 
-func (cmd *cc) New(app *cli.App, ctx *zbcontext.Context) cli.Command {
+func (cmd *cc) New(app *cli.App, ctx zbcontext.Context) cli.Command {
 	cmd.Context = ctx
 
 	return cli.Command{

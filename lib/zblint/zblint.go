@@ -19,7 +19,7 @@ import (
 
 // ZBLint provides methods for working with cached lint result files
 type ZBLint struct {
-	*zbcontext.Context
+	zbcontext.Context
 	lintflags.Data
 	NoMissingComment bool
 	IgnoreSuffixes   cli.StringSlice

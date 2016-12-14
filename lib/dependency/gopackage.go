@@ -12,7 +12,7 @@ import (
 
 type GoPackage struct {
 	*build.Package
-	*zbcontext.Context
+	zbcontext.Context
 	BuildArgs         []string
 	Path              string
 	ProjectImportPath string

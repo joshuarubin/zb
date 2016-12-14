@@ -14,7 +14,7 @@ import (
 
 // A Project is a collection of Packages contained within a single repository
 type Project struct {
-	*zbcontext.Context
+	zbcontext.Context
 	Dir      string
 	Packages Packages
 

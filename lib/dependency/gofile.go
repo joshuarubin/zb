@@ -20,7 +20,7 @@ import (
 var _ Dependency = (*GoFile)(nil)
 
 type GoFile struct {
-	*zbcontext.Context
+	zbcontext.Context
 	BuildArgs         []string
 	Path              string
 	ProjectImportPath string

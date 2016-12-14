@@ -13,11 +13,11 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	*zbcontext.Context
+	zbcontext.Context
 	buildflags.Data
 }
 
-func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
 	cmd.Context = ctx
 
 	return cli.Command{

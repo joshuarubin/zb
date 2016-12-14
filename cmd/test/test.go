@@ -26,7 +26,7 @@ type cc struct {
 	List bool
 }
 
-func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
 	cmd.Context = ctx
 
 	return cli.Command{

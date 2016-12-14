@@ -9,7 +9,7 @@ import (
 )
 
 // Projects lists the unique projects found by parsing the import paths in args
-func Projects(ctx *zbcontext.Context, args ...string) (List, error) {
+func Projects(ctx zbcontext.Context, args ...string) (List, error) {
 	if len(args) == 0 {
 		args = append(args, ".")
 	}
@@ -62,7 +62,7 @@ func Projects(ctx *zbcontext.Context, args ...string) (List, error) {
 	return projects, nil
 }
 
-func project(ctx *zbcontext.Context, importPath string) (*Project, error) {
+func project(ctx zbcontext.Context, importPath string) (*Project, error) {
 	p := &Project{
 		Context:  ctx,
 		Packages: make([]*Package, 1),

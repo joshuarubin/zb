@@ -24,7 +24,7 @@ type cc struct {
 	zblint.ZBLint
 }
 
-func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
 	cmd.Context = ctx
 
 	return cli.Command{

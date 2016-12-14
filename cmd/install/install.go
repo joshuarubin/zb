@@ -13,11 +13,11 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	*zbcontext.Context
+	zbcontext.Context
 	buildflags.Data
 }
 
-func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
+func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
 	cmd.Context = ctx
 
 	return cli.Command{
@@ -33,7 +33,7 @@ func (cmd *cc) New(_ *cli.App, ctx *zbcontext.Context) cli.Command {
 	}
 }
 
-func Run(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) error {
+func Run(ctx zbcontext.Context, tt dependency.TargetType, args ...string) error {
 	var err error
 	var built int
 
@@ -54,7 +54,7 @@ func Run(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) error
 	return nil
 }
 
-func installPackage(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
+func installPackage(ctx zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
 	pkgs, err := project.ListPackages(ctx, args...)
 	if err != nil {
 		return 0, err
@@ -63,7 +63,7 @@ func installPackage(ctx *zbcontext.Context, tt dependency.TargetType, args ...st
 	return pkgs.Build(tt)
 }
 
-func installProject(ctx *zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
+func installProject(ctx zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
 	projects, err := project.Projects(ctx, args...)
 	if err != nil {
 		return 0, err

@@ -23,7 +23,7 @@ import (
 // A Package is a single go Package
 type Package struct {
 	*build.Package
-	*zbcontext.Context
+	zbcontext.Context
 
 	IsVendored bool
 
@@ -343,7 +343,7 @@ func hashFiles(h io.Writer, dir string, files []string) error {
 
 var cache = map[string]*Package{}
 
-func NewPackage(ctx *zbcontext.Context, importPath, srcDir string, includeTestImports bool) (*Package, error) {
+func NewPackage(ctx zbcontext.Context, importPath, srcDir string, includeTestImports bool) (*Package, error) {
 	importPath = ctx.NormalizeImportPath(importPath)
 
 	if pkg, ok := cache[importPath]; ok {

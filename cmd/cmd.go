@@ -14,7 +14,7 @@ import (
 
 // Constructor returns a cli.Command
 type Constructor interface {
-	New(app *cli.App, ctx *zbcontext.Context) cli.Command
+	New(app *cli.App, ctx zbcontext.Context) cli.Command
 }
 
 // BashComplete prints words suitable for completion of the App

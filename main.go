@@ -95,7 +95,7 @@ func init() {
 	}
 
 	for _, sc := range subcommands {
-		c := sc.New(app, &ctx)
+		c := sc.New(app, ctx)
 		c.Before = wrapFn(c.Before)
 		c.Action = wrapFn(c.Action)
 		c.After = wrapFn(c.After)

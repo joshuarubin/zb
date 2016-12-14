@@ -17,7 +17,7 @@ import (
 
 // ZBTest provides methods for working with cached test result files
 type ZBTest struct {
-	*zbcontext.Context
+	zbcontext.Context
 	buildflags.TestFlagsData
 	Force bool
 }

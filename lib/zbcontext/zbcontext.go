@@ -52,11 +52,11 @@ type Context struct {
 //
 // If an error occurs, Import returns a non-nil error and a non-nil
 // *Package containing partial information.
-func (ctx *Context) Import(path, srcDir string) (*build.Package, error) {
+func (ctx Context) Import(path, srcDir string) (*build.Package, error) {
 	return ctx.buildContext().Import(path, srcDir, build.ImportComment)
 }
 
-func (ctx *Context) buildContext() *build.Context {
+func (ctx Context) buildContext() *build.Context {
 	if ctx.BuildContext != nil {
 		return ctx.BuildContext
 	}
