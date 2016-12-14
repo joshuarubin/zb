@@ -31,7 +31,6 @@ type Package struct {
 	depsBuilt                   bool
 	includeTestImports          bool
 	pkgHash, testHash, lintHash string
-	depMap                      map[string]*Package
 }
 
 func (pkg *Package) BuildPath(projectDir string) string {
@@ -130,8 +129,8 @@ func (pkg *Package) Deps() ([]*Package, error) {
 
 	pkg.depsBuilt = true
 
-	pkg.depMap = map[string]*Package{}
-	pkg.depMap[pkg.ImportPath] = pkg
+	depMap := map[string]*Package{}
+	depMap[pkg.ImportPath] = pkg
 
 	queue := []string{pkg.ImportPath}
 
@@ -139,7 +138,7 @@ func (pkg *Package) Deps() ([]*Package, error) {
 		path := queue[0]
 		queue = queue[1:]
 
-		p, ok := pkg.depMap[path]
+		p, ok := depMap[path]
 		if !ok {
 			return nil, errors.Errorf("error loading package: %s", path)
 		}
@@ -161,11 +160,11 @@ func (pkg *Package) Deps() ([]*Package, error) {
 				return nil, errors.Wrapf(err, "error importing package: %s", path)
 			}
 
-			if _, ok := pkg.depMap[dep.ImportPath]; ok {
+			if _, ok := depMap[dep.ImportPath]; ok {
 				continue
 			}
 
-			pkg.depMap[dep.ImportPath] = dep
+			depMap[dep.ImportPath] = dep
 			queue = append(queue, dep.ImportPath)
 			pkg.deps = append(pkg.deps, dep)
 		}
@@ -255,7 +254,10 @@ func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 
 	for name, imps := range imports {
 		for _, imp := range imps {
-			p1 := pkg.depMap[imp]
+			p1, err := NewPackage(pkg.Context, imp, pkg.Dir, true)
+			if err != nil {
+				return "", err
+			}
 			hash, err := p1.Hash()
 			if err != nil {
 				return "", err
