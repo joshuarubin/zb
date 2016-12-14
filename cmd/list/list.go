@@ -15,42 +15,41 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
 	buildflags.Data
+	ExcludeVendor bool
 }
 
-func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
-	cmd.Context = ctx
-
+func (co *cc) New(*cli.App) cli.Command {
 	return cli.Command{
 		Name:      "list",
 		Usage:     "lists the packages in the repos of the packages named by the import paths, one per line.",
 		ArgsUsage: "[-vendor] [build flags] [packages]",
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.App.Writer, c.Args()...)
+			ctx := cmd.Context(c)
+			ctx.ExcludeVendor = co.ExcludeVendor
+			ctx.BuildContext = co.Data.BuildContext()
+			return co.run(ctx, c.App.Writer, c.Args()...)
 		},
-		Flags: append(cmd.BuildFlags(false),
+		Flags: append(co.BuildFlags(false),
 			cli.BoolFlag{
 				Name:        "vendor",
 				Usage:       "exclude vendor directories",
-				Destination: &cmd.ExcludeVendor,
+				Destination: &co.ExcludeVendor,
 			},
 		),
 	}
 }
 
-func (cmd *cc) run(w io.Writer, args ...string) error {
-	cmd.Context.BuildContext = cmd.Data.BuildContext()
-
-	if cmd.Package {
-		return cmd.listPackage(w, args...)
+func (co *cc) run(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	if ctx.Package {
+		return co.listPackage(ctx, w, args...)
 	}
 
-	return cmd.listProject(w, args...)
+	return co.listProject(ctx, w, args...)
 }
 
-func (cmd *cc) listPackage(w io.Writer, args ...string) error {
-	pkgs, err := project.ListPackages(cmd.Context, args...)
+func (co *cc) listPackage(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(ctx, args...)
 	if err != nil {
 		return err
 	}
@@ -62,8 +61,8 @@ func (cmd *cc) listPackage(w io.Writer, args ...string) error {
 	return nil
 }
 
-func (cmd *cc) listProject(w io.Writer, args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+func (co *cc) listProject(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	projects, err := project.Projects(ctx, args...)
 	if err != nil {
 		return err
 	}

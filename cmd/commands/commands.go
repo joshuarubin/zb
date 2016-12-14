@@ -13,34 +13,31 @@ import (
 // Cmd is the commands command
 var Cmd cmd.Constructor = &cc{}
 
-type cc struct {
-	zbcontext.Context
-}
+type cc struct{}
 
-func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
-	cmd.Context = ctx
-	cmd.ExcludeVendor = true
-
+func (co *cc) New(_ *cli.App) cli.Command {
 	return cli.Command{
 		Name:      "commands",
 		Usage:     "list all of the executables that will be emitted by the build command",
 		ArgsUsage: "[packages]",
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.App.Writer, c.Args()...)
+			ctx := cmd.Context(c)
+			ctx.ExcludeVendor = true
+			return co.run(ctx, c.App.Writer, c.Args()...)
 		},
 	}
 }
 
-func (cmd *cc) run(w io.Writer, args ...string) error {
-	if cmd.Package {
-		return cmd.commandsPackage(w, args...)
+func (co *cc) run(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	if ctx.Package {
+		return co.commandsPackage(ctx, w, args...)
 	}
 
-	return cmd.commandsProject(w, args...)
+	return co.commandsProject(ctx, w, args...)
 }
 
-func (cmd *cc) commandsPackage(w io.Writer, args ...string) error {
-	pkgs, err := project.ListPackages(cmd.Context, args...)
+func (co *cc) commandsPackage(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(ctx, args...)
 	if err != nil {
 		return err
 	}
@@ -54,8 +51,8 @@ func (cmd *cc) commandsPackage(w io.Writer, args ...string) error {
 	return nil
 }
 
-func (cmd *cc) commandsProject(w io.Writer, args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+func (co *cc) commandsProject(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	projects, err := project.Projects(ctx, args...)
 	if err != nil {
 		return err
 	}

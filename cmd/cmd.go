@@ -14,7 +14,7 @@ import (
 
 // Constructor returns a cli.Command
 type Constructor interface {
-	New(app *cli.App, ctx zbcontext.Context) cli.Command
+	New(app *cli.App) cli.Command
 }
 
 // BashComplete prints words suitable for completion of the App
@@ -65,4 +65,12 @@ func DefaultCacheDir(name string) string {
 	}
 
 	return filepath.Join(os.Getenv("HOME"), ".cache", name)
+}
+
+// Context extracts zbcontext from app metadata
+func Context(c *cli.Context) zbcontext.Context {
+	if ctx, ok := c.App.Metadata["Context"].(zbcontext.Context); ok {
+		return ctx
+	}
+	panic("context not available")
 }

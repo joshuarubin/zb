@@ -1,12 +1,16 @@
 package dependency
 
-import "time"
+import (
+	"time"
+
+	"jrubin.io/zb/lib/zbcontext"
+)
 
 type Dependency interface {
 	Name() string
-	Build() error
-	Install() error
+	Build(ctx zbcontext.Context) error
+	Install(ctx zbcontext.Context) error
 	ModTime() time.Time
-	Dependencies() ([]Dependency, error)
+	Dependencies(ctx zbcontext.Context) ([]Dependency, error)
 	Buildable() bool
 }

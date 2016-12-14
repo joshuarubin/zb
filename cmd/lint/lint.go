@@ -24,86 +24,82 @@ type cc struct {
 	zblint.ZBLint
 }
 
-func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
-	cmd.Context = ctx
-
+func (co *cc) New(*cli.App) cli.Command {
 	return cli.Command{
 		Name:      "lint",
 		Usage:     "gometalinter with cache and better defaults",
 		ArgsUsage: "[arguments] [packages]",
-		Before: func(c *cli.Context) error {
-			cmd.LintSetup()
-			return nil
-		},
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.App.Writer, c.Args()...)
+			ctx := cmd.Context(c)
+			ctx = co.LintSetup(ctx)
+			return co.run(ctx, c.App.Writer, c.Args()...)
 		},
-		Flags: append(cmd.LintFlags(),
+		Flags: append(co.LintFlags(),
 			cli.BoolFlag{
 				Name:        "n",
 				Usage:       "Hide golint missing comment warnings",
-				Destination: &cmd.NoMissingComment,
+				Destination: &co.NoMissingComment,
 			},
 			cli.StringSliceFlag{
 				Name:  "ignore-suffix",
 				Usage: fmt.Sprintf("Filter out lint lines from files that have these suffixes (default: %s)", strings.Join(zblint.DefaultIgnoreSuffixes, ",")),
-				Value: &cmd.IgnoreSuffixes,
+				Value: &co.IgnoreSuffixes,
 			},
 		),
 	}
 }
 
-func (cmd *cc) run(w io.Writer, args ...string) error {
+func (co *cc) run(ctx zbcontext.Context, w io.Writer, args ...string) error {
 	if _, err := exec.LookPath("gometalinter"); err != nil {
 		return err
 	}
 
-	if cmd.Package {
-		return cmd.runPackage(w, args...)
+	if ctx.Package {
+		return co.runPackage(ctx, w, args...)
 	}
 
-	return cmd.runProject(w, args...)
+	return co.runProject(ctx, w, args...)
 }
 
-func (cmd *cc) runPackage(w io.Writer, args ...string) error {
-	pkgs, err := project.ListPackages(cmd.Context, args...)
+func (co *cc) runPackage(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	pkgs, err := project.ListPackages(ctx, args...)
 	if err != nil {
 		return err
 	}
 
-	pkgs, toRun, err := cmd.buildListsPackages(pkgs)
+	pkgs, toRun, err := co.buildListsPackages(ctx, pkgs)
 	if err != nil {
 		return err
 	}
 
-	return cmd.exec(w, pkgs, toRun)
+	return co.exec(ctx, w, pkgs, toRun)
 }
 
-func (cmd *cc) runProject(w io.Writer, args ...string) error {
-	projects, err := project.Projects(cmd.Context, args...)
+func (co *cc) runProject(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	projects, err := project.Projects(ctx, args...)
 	if err != nil {
 		return err
 	}
 
-	pkgs, toRun, err := cmd.buildListsProjects(projects)
+	pkgs, toRun, err := co.buildListsProjects(ctx, projects)
 	if err != nil {
 		return err
 	}
 
-	return cmd.exec(w, pkgs, toRun)
+	return co.exec(ctx, w, pkgs, toRun)
 }
 
-func (cmd *cc) exec(w io.Writer, pkgs, toRun project.Packages) error {
+func (co *cc) exec(ctx zbcontext.Context, w io.Writer, pkgs, toRun project.Packages) error {
 	code := zbcontext.ExitOK
 
 	for _, pkg := range pkgs {
-		file, err := cmd.CacheFile(pkg)
+		file, err := co.CacheFile(ctx, pkg)
 		if err != nil {
 			return err
 		}
 
 		if len(toRun) > 0 && toRun[0] == pkg {
-			ecode, err := cmd.runLinter(w, pkg.Package.Dir, file)
+			ecode, err := co.runLinter(ctx, w, pkg.Package.Dir, file)
 			if err != nil {
 				return err
 			}
@@ -113,7 +109,7 @@ func (cmd *cc) exec(w io.Writer, pkgs, toRun project.Packages) error {
 
 			toRun = toRun[1:]
 		} else {
-			failed, err := cmd.ShowResult(w, file)
+			failed, err := co.ShowResult(w, file)
 			if err != nil {
 				return err
 			}
@@ -130,7 +126,7 @@ func (cmd *cc) exec(w io.Writer, pkgs, toRun project.Packages) error {
 	return nil
 }
 
-func (cmd *cc) buildListsPackages(in project.Packages) (pkgs, toRun project.Packages, err error) {
+func (co *cc) buildListsPackages(ctx zbcontext.Context, in project.Packages) (pkgs, toRun project.Packages, err error) {
 	for _, pkg := range in {
 		if pkg.IsVendored {
 			continue
@@ -139,7 +135,7 @@ func (cmd *cc) buildListsPackages(in project.Packages) (pkgs, toRun project.Pack
 		pkgs = append(pkgs, pkg)
 
 		var foundResult bool
-		if foundResult, err = cmd.HaveResult(pkg); err != nil {
+		if foundResult, err = co.HaveResult(ctx, pkg); err != nil {
 			return
 		}
 
@@ -154,10 +150,10 @@ func (cmd *cc) buildListsPackages(in project.Packages) (pkgs, toRun project.Pack
 	return
 }
 
-func (cmd *cc) buildListsProjects(projects project.List) (pkgs, toRun project.Packages, err error) {
+func (co *cc) buildListsProjects(ctx zbcontext.Context, projects project.List) (pkgs, toRun project.Packages, err error) {
 	for _, proj := range projects {
 		var p, r project.Packages
-		p, r, err = cmd.buildListsPackages(proj.Packages)
+		p, r, err = co.buildListsPackages(ctx, proj.Packages)
 		if err != nil {
 			return
 		}
@@ -171,17 +167,17 @@ func (cmd *cc) buildListsProjects(projects project.List) (pkgs, toRun project.Pa
 	return
 }
 
-func (cmd *cc) runLinter(w io.Writer, path, cacheFile string) (int, error) {
+func (co *cc) runLinter(ctx zbcontext.Context, w io.Writer, path, cacheFile string) (int, error) {
 	code := zbcontext.ExitOK
 
-	if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
+	if err := os.MkdirAll(ctx.CacheDir, 0700); err != nil {
 		return code, err
 	}
 
-	args := cmd.LintArgs()
+	args := co.LintArgs()
 	args = append(args, path)
 
-	cmd.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
+	ctx.Logger.Debug(zbcontext.QuoteCommand("→ gometalinter", args))
 
 	pr, pw := io.Pipe()
 
@@ -213,7 +209,7 @@ func (cmd *cc) runLinter(w io.Writer, path, cacheFile string) (int, error) {
 		return nil
 	})
 
-	if err := cmd.ReadResult(w, pr, cacheFile); err != nil {
+	if err := co.ReadResult(w, pr, cacheFile); err != nil {
 		return code, err
 	}
 

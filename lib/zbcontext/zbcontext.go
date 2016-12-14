@@ -26,7 +26,7 @@ type BuildArger interface {
 
 // Context for package related commands
 type Context struct {
-	Logger               slog.Logger
+	Logger               slog.Interface
 	GitCommit, BuildDate *string
 	NoWarnTodoFixme      bool
 	CacheDir             string
@@ -246,7 +246,7 @@ func (ctx *Context) ImportPathToDir(importPath string) string {
 }
 
 func (ctx *Context) ExpandEllipsis(args ...string) []string {
-	return ellipsis.Expand(ctx.buildContext(), &ctx.Logger, args...)
+	return ellipsis.Expand(ctx.buildContext(), ctx.Logger, args...)
 }
 
 // GitDir checks the directory value for the presence of .git and will walk up

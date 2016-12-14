@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"jrubin.io/zb/lib/dependency"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 type List []*Project
@@ -37,7 +38,7 @@ func (l List) Exists(dir string) (bool, int) {
 	return (i < l.Len() && l[i].Dir == dir), i
 }
 
-func (l List) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
+func (l List) Targets(ctx zbcontext.Context, tt dependency.TargetType) ([]*dependency.Target, error) {
 	unique := dependency.Targets{}
 
 	var group errgroup.Group
@@ -45,7 +46,7 @@ func (l List) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
 	for _, p := range l {
 		pp := p
 		group.Go(func() error {
-			targets, err := pp.Targets(tt)
+			targets, err := pp.Targets(ctx, tt)
 			if err != nil {
 				return err
 			}
@@ -74,10 +75,10 @@ func (l List) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
 	return targets, nil
 }
 
-func (l List) Build(tt dependency.TargetType) (int, error) {
-	targets, err := l.Targets(tt)
+func (l List) Build(ctx zbcontext.Context, tt dependency.TargetType) (int, error) {
+	targets, err := l.Targets(ctx, tt)
 	if err != nil {
 		return 0, err
 	}
-	return dependency.Build(tt, targets)
+	return dependency.Build(ctx, tt, targets)
 }

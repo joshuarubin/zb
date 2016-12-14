@@ -23,7 +23,6 @@ import (
 // A Package is a single go Package
 type Package struct {
 	*build.Package
-	zbcontext.Context
 
 	IsVendored bool
 
@@ -43,9 +42,9 @@ func (pkg *Package) InstallPath() string {
 
 // BuildTarget returns the absolute path of the binary that this package
 // generates when it is built
-func (pkg *Package) BuildTarget(projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
+func (pkg *Package) BuildTarget(ctx zbcontext.Context, projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
 	if !pkg.IsCommand() {
-		return pkg.InstallTarget(projectDir, gitCommit)
+		return pkg.InstallTarget(ctx, projectDir, gitCommit)
 	}
 
 	if projectDir == "" {
@@ -53,30 +52,28 @@ func (pkg *Package) BuildTarget(projectDir string, gitCommit *core.Hash) *depend
 	}
 
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(projectDir),
+		ProjectImportPath: ctx.DirToImportPath(projectDir),
 		Path:              pkg.BuildPath(projectDir),
 		Package:           pkg.Package,
-		Context:           pkg.Context,
-		BuildArgs:         pkg.BuildArgs(pkg.Package, gitCommit),
+		BuildArgs:         ctx.BuildArgs(pkg.Package, gitCommit),
 	}
 }
 
-func (pkg *Package) InstallTarget(projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
+func (pkg *Package) InstallTarget(ctx zbcontext.Context, projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
 	if projectDir == "" {
 		projectDir = pkg.Dir
 	}
 
 	return &dependency.GoPackage{
-		ProjectImportPath: pkg.DirToImportPath(projectDir),
+		ProjectImportPath: ctx.DirToImportPath(projectDir),
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
-		Context:           pkg.Context,
-		BuildArgs:         pkg.BuildArgs(pkg.Package, gitCommit),
+		BuildArgs:         ctx.BuildArgs(pkg.Package, gitCommit),
 	}
 }
 
-func (pkg *Package) Targets(tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
-	var fn func(string, *core.Hash) *dependency.GoPackage
+func (pkg *Package) Targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
+	var fn func(zbcontext.Context, string, *core.Hash) *dependency.GoPackage
 
 	switch tt {
 	case dependency.TargetBuild, dependency.TargetGenerate:
@@ -91,7 +88,7 @@ func (pkg *Package) Targets(tt dependency.TargetType, projectDir string, gitComm
 		projectDir = pkg.Dir
 	}
 
-	gopkg := fn(projectDir, gitCommit)
+	gopkg := fn(ctx, projectDir, gitCommit)
 
 	queue := []*dependency.Target{dependency.NewTarget(gopkg, nil)}
 	unique := dependency.Targets{}
@@ -106,7 +103,7 @@ func (pkg *Package) Targets(tt dependency.TargetType, projectDir string, gitComm
 			continue
 		}
 
-		deps, err := target.Dependencies()
+		deps, err := target.Dependencies(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +117,7 @@ func (pkg *Package) Targets(tt dependency.TargetType, projectDir string, gitComm
 	return &unique, nil
 }
 
-func (pkg *Package) Deps() ([]*Package, error) {
+func (pkg *Package) Deps(ctx zbcontext.Context) ([]*Package, error) {
 	// sorted, recursive
 
 	if pkg.depsBuilt {
@@ -155,7 +152,7 @@ func (pkg *Package) Deps() ([]*Package, error) {
 				continue
 			}
 
-			dep, err := NewPackage(p.Context, path, p.Package.Dir, false)
+			dep, err := NewPackage(ctx, path, p.Package.Dir, false)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error importing package: %s", path)
 			}
@@ -219,7 +216,7 @@ func (pkg *Package) LintHash(flag *lintflags.Data) (string, error) {
 	return pkg.lintHash, nil
 }
 
-func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
+func (pkg *Package) TestHash(ctx zbcontext.Context, flag *buildflags.TestFlagsData) (string, error) {
 	if pkg.testHash != "" {
 		return pkg.testHash, nil
 	}
@@ -241,7 +238,7 @@ func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 		fmt.Fprintf(h, "-v\n")
 	}
 
-	pkgHash, err := pkg.Hash()
+	pkgHash, err := pkg.Hash(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -254,11 +251,11 @@ func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 
 	for name, imps := range imports {
 		for _, imp := range imps {
-			p1, err := NewPackage(pkg.Context, imp, pkg.Dir, true)
+			p1, err := NewPackage(ctx, imp, pkg.Dir, true)
 			if err != nil {
 				return "", err
 			}
-			hash, err := p1.Hash()
+			hash, err := p1.Hash(ctx)
 			if err != nil {
 				return "", err
 			}
@@ -278,14 +275,14 @@ func (pkg *Package) TestHash(flag *buildflags.TestFlagsData) (string, error) {
 	return pkg.testHash, nil
 }
 
-func (pkg *Package) Hash() (string, error) {
+func (pkg *Package) Hash(ctx zbcontext.Context) (string, error) {
 	if pkg.pkgHash != "" {
 		return pkg.pkgHash, nil
 	}
 
 	pkg.pkgHash = cycle
 
-	deps, err := pkg.Deps()
+	deps, err := pkg.Deps(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -295,7 +292,7 @@ func (pkg *Package) Hash() (string, error) {
 	fmt.Fprintf(h, "pkg\n")
 
 	for _, p1 := range deps {
-		hash, err := p1.Hash()
+		hash, err := p1.Hash(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -360,7 +357,6 @@ func NewPackage(ctx zbcontext.Context, importPath, srcDir string, includeTestImp
 	isVendored := strings.Contains(pkg.ImportPath, "vendor/")
 
 	ret := &Package{
-		Context:            ctx,
 		Package:            pkg,
 		IsVendored:         isVendored,
 		includeTestImports: !isVendored && includeTestImports,

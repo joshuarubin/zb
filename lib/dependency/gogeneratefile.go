@@ -3,6 +3,8 @@ package dependency
 import (
 	"os"
 	"time"
+
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 var _ Dependency = (*GoGenerateFile)(nil)
@@ -17,7 +19,7 @@ func (f GoGenerateFile) Name() string {
 	return f.Path
 }
 
-func (f GoGenerateFile) Build() error {
+func (f GoGenerateFile) Build(ctx zbcontext.Context) error {
 	// with patsubst, multiple GoGenerateFiles may exist pointing to the same
 	// GoFile. we want to ensure that go generate only runs once in these cases.
 	// we lock the GoFile to ensure no concurrent go generates and once we have
@@ -30,11 +32,11 @@ func (f GoGenerateFile) Build() error {
 		return nil
 	}
 
-	return f.GoFile.Generate()
+	return f.GoFile.Generate(ctx)
 }
 
-func (f GoGenerateFile) Install() error {
-	return f.Build()
+func (f GoGenerateFile) Install(ctx zbcontext.Context) error {
+	return f.Build(ctx)
 }
 
 func (f GoGenerateFile) ModTime() time.Time {
@@ -45,7 +47,7 @@ func (f GoGenerateFile) ModTime() time.Time {
 	return i.ModTime()
 }
 
-func (f GoGenerateFile) Dependencies() ([]Dependency, error) {
+func (f GoGenerateFile) Dependencies(zbcontext.Context) ([]Dependency, error) {
 	return []Dependency{f.Depends}, nil
 }
 

@@ -3,6 +3,8 @@ package dependency
 import (
 	"os"
 	"time"
+
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 var _ Dependency = (*File)(nil)
@@ -13,12 +15,12 @@ func (f File) Name() string {
 	return string(f)
 }
 
-func (f File) Build() error {
+func (f File) Build(zbcontext.Context) error {
 	// noop
 	return nil
 }
 
-func (f File) Install() error {
+func (f File) Install(zbcontext.Context) error {
 	// noop
 	return nil
 }
@@ -31,7 +33,7 @@ func (f File) ModTime() time.Time {
 	return i.ModTime()
 }
 
-func (f File) Dependencies() ([]Dependency, error) {
+func (f File) Dependencies(zbcontext.Context) ([]Dependency, error) {
 	// noop
 	return nil, nil
 }

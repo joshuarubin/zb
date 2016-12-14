@@ -26,20 +26,19 @@ type cc struct {
 	List bool
 }
 
-func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
-	cmd.Context = ctx
-
+func (co *cc) New(*cli.App) cli.Command {
 	return cli.Command{
 		Name:      "test",
 		Usage:     "test all of the packages in each of the projects and cache the results",
 		ArgsUsage: "[build/test flags] [packages]",
 		Action: func(c *cli.Context) error {
-			return cmd.run(c.App.Writer, c.Args()...)
+			ctx := cmd.Context(c)
+			return co.run(ctx, c.App.Writer, c.Args()...)
 		},
-		Flags: append(cmd.TestFlags(), []cli.Flag{
+		Flags: append(co.TestFlags(), []cli.Flag{
 			cli.BoolFlag{
 				Name:        "f",
-				Destination: &cmd.Force,
+				Destination: &co.Force,
 				Usage: `
 
 				treat all test results as uncached, as does the use of any 'go
@@ -47,59 +46,59 @@ func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
 			},
 			cli.BoolFlag{
 				Name:        "l",
-				Destination: &cmd.List,
+				Destination: &co.List,
 				Usage:       "list the uncached tests it would run",
 			},
 		}...),
 	}
 }
 
-func (cmd *cc) run(w io.Writer, args ...string) error {
-	cmd.TestSetup()
+func (co *cc) run(ctx zbcontext.Context, w io.Writer, args ...string) error {
+	ctx = co.TestSetup(ctx)
 
 	var pkgs, toRun project.Packages
 	var err error
 
-	if cmd.Package {
-		pkgs, toRun, err = cmd.runPackages(w, args...)
+	if ctx.Package {
+		pkgs, toRun, err = co.runPackages(ctx, w, args...)
 	} else {
-		pkgs, toRun, err = cmd.runProjects(w, args...)
+		pkgs, toRun, err = co.runProjects(ctx, w, args...)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	if cmd.List {
+	if co.List {
 		for _, pkg := range toRun {
 			fmt.Fprintf(w, "%s\n", pkg.ImportPath)
 		}
 		return nil
 	}
 
-	return cmd.runTest(w, pkgs, toRun)
+	return co.runTest(ctx, w, pkgs, toRun)
 }
 
-func (cmd *cc) runPackages(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
-	pkgs, err = project.ListPackages(cmd.Context, args...)
+func (co *cc) runPackages(ctx zbcontext.Context, w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
+	pkgs, err = project.ListPackages(ctx, args...)
 	if err != nil {
 		return
 	}
 
-	return cmd.buildPackagesLists(pkgs)
+	return co.buildPackagesLists(ctx, pkgs)
 }
 
-func (cmd *cc) runProjects(w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
+func (co *cc) runProjects(ctx zbcontext.Context, w io.Writer, args ...string) (pkgs, toRun project.Packages, err error) {
 	var projects project.List
-	projects, err = project.Projects(cmd.Context, args...)
+	projects, err = project.Projects(ctx, args...)
 	if err != nil {
 		return
 	}
 
-	return cmd.buildProjectsLists(projects)
+	return co.buildProjectsLists(ctx, projects)
 }
 
-func (cmd *cc) buildPackagesLists(in project.Packages) (pkgs, toRun project.Packages, err error) {
+func (co *cc) buildPackagesLists(ctx zbcontext.Context, in project.Packages) (pkgs, toRun project.Packages, err error) {
 	for _, pkg := range in {
 		if pkg.IsVendored {
 			continue
@@ -108,7 +107,7 @@ func (cmd *cc) buildPackagesLists(in project.Packages) (pkgs, toRun project.Pack
 		pkgs.Insert(pkg)
 
 		var foundResult bool
-		if foundResult, err = cmd.HaveResult(pkg); err != nil {
+		if foundResult, err = co.HaveResult(ctx, pkg); err != nil {
 			return
 		}
 
@@ -120,10 +119,10 @@ func (cmd *cc) buildPackagesLists(in project.Packages) (pkgs, toRun project.Pack
 	return
 }
 
-func (cmd *cc) buildProjectsLists(projects project.List) (pkgs, toRun project.Packages, err error) {
+func (co *cc) buildProjectsLists(ctx zbcontext.Context, projects project.List) (pkgs, toRun project.Packages, err error) {
 	for _, proj := range projects {
 		var p, r project.Packages
-		p, r, err = cmd.buildPackagesLists(proj.Packages)
+		p, r, err = co.buildPackagesLists(ctx, proj.Packages)
 		if err != nil {
 			return
 		}
@@ -135,21 +134,21 @@ func (cmd *cc) buildProjectsLists(projects project.List) (pkgs, toRun project.Pa
 	return
 }
 
-func (cmd *cc) runTest(w io.Writer, pkgs, toRun project.Packages) error {
+func (co *cc) runTest(ctx zbcontext.Context, w io.Writer, pkgs, toRun project.Packages) error {
 	var ecmd *exec.Cmd
 	pr, pw := io.Pipe()
 	if len(toRun) > 0 {
-		if err := os.MkdirAll(cmd.CacheDir, 0700); err != nil {
+		if err := os.MkdirAll(ctx.CacheDir, 0700); err != nil {
 			return err
 		}
 
 		args := []string{"test"}
-		args = append(args, cmd.TestArgs(nil, nil)...)
+		args = append(args, co.TestArgs(nil, nil)...)
 		for _, pkg := range toRun {
 			args = append(args, pkg.ImportPath)
 		}
 
-		cmd.Logger.Debug(zbcontext.QuoteCommand("→ go", args))
+		ctx.Logger.Debug(zbcontext.QuoteCommand("→ go", args))
 
 		ecmd = exec.Command("go", args...) // nosec
 		ecmd.Stdout = pw
@@ -184,12 +183,12 @@ func (cmd *cc) runTest(w io.Writer, pkgs, toRun project.Packages) error {
 
 	for _, pkg := range pkgs {
 		if len(toRun) > 0 && toRun[0] == pkg {
-			if err := cmd.ReadResult(r, pkg); err != nil {
+			if err := co.ReadResult(ctx, r, pkg); err != nil {
 				return err
 			}
 			toRun = toRun[1:]
 		} else {
-			passed, err := cmd.ShowResult(w, pkg)
+			passed, err := co.ShowResult(ctx, w, pkg)
 			if err != nil {
 				return err
 			}

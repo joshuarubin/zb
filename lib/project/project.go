@@ -6,6 +6,7 @@ import (
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/core"
 
+	"jrubin.io/slog"
 	"jrubin.io/zb/lib/dependency"
 	"jrubin.io/zb/lib/zbcontext"
 
@@ -14,7 +15,6 @@ import (
 
 // A Project is a collection of Packages contained within a single repository
 type Project struct {
-	zbcontext.Context
 	Dir      string
 	Packages Packages
 
@@ -22,14 +22,14 @@ type Project struct {
 	filled    bool
 }
 
-func (p *Project) fillPackages() error {
+func (p *Project) fillPackages(ctx zbcontext.Context) error {
 	if p.filled {
 		return nil
 	}
 
 	p.filled = true
 
-	base := p.DirToImportPath(p.Dir)
+	base := ctx.DirToImportPath(p.Dir)
 	if base == "" {
 		return errors.Errorf("could not find base import path for: %s", p.Dir)
 	}
@@ -37,20 +37,20 @@ func (p *Project) fillPackages() error {
 	// base should always be a fully qualified package import, never an absolute
 	// or relative path
 
-	importPaths := p.ExpandEllipsis(filepath.Join(base, "..."))
+	importPaths := ctx.ExpandEllipsis(filepath.Join(base, "..."))
 	for _, importPath := range importPaths {
-		if dir := p.ImportPathToDir(importPath); dir != "" {
+		if dir := ctx.ImportPathToDir(importPath); dir != "" {
 			if ok, _ := p.Packages.Exists(dir); ok {
 				continue
 			}
 		}
 
-		pkg, err := NewPackage(p.Context, importPath, p.Dir, true)
+		pkg, err := NewPackage(ctx, importPath, p.Dir, true)
 		if err != nil {
 			return err
 		}
 
-		if p.ExcludeVendor && pkg.IsVendored {
+		if ctx.ExcludeVendor && pkg.IsVendored {
 			continue
 		}
 
@@ -60,11 +60,11 @@ func (p *Project) fillPackages() error {
 	return nil
 }
 
-func (p *Project) Targets(tt dependency.TargetType) (*dependency.Targets, error) {
-	return p.Packages.targets(tt, p.Dir, p.GitCommit())
+func (p *Project) Targets(ctx zbcontext.Context, tt dependency.TargetType) (*dependency.Targets, error) {
+	return p.Packages.targets(ctx, tt, p.Dir, p.GitCommit(ctx.Logger))
 }
 
-func (p *Project) GitCommit() *core.Hash {
+func (p *Project) GitCommit(logger slog.Interface) *core.Hash {
 	if p.gitCommit != nil {
 		return p.gitCommit
 	}
@@ -73,13 +73,13 @@ func (p *Project) GitCommit() *core.Hash {
 
 	repo, err := git.NewFilesystemRepository(dir)
 	if err != nil {
-		p.Logger.WithError(err).Warn("could not determine git commit")
+		logger.WithError(err).Warn("could not determine git commit")
 		return nil
 	}
 
 	head, err := repo.Head()
 	if err != nil {
-		p.Logger.WithError(err).Warn("could not determine git commit")
+		logger.WithError(err).Warn("could not determine git commit")
 		return nil
 	}
 

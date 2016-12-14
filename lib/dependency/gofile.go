@@ -20,7 +20,6 @@ import (
 var _ Dependency = (*GoFile)(nil)
 
 type GoFile struct {
-	zbcontext.Context
 	BuildArgs         []string
 	Path              string
 	ProjectImportPath string
@@ -50,7 +49,6 @@ func NewGoFile(pkg *GoPackage, path string) *GoFile {
 	}
 
 	f := &GoFile{
-		Context:           pkg.Context,
 		BuildArgs:         pkg.BuildArgs,
 		Path:              path,
 		ProjectImportPath: pkg.ProjectImportPath,
@@ -83,7 +81,7 @@ func isTodoOrFixme(buf []byte) bool {
 		bytes.Contains(buf, []byte(strings.ToUpper("fixme")))
 }
 
-func (e *GoFile) Dependencies() ([]Dependency, error) {
+func (e *GoFile) Dependencies(ctx zbcontext.Context) ([]Dependency, error) {
 	e.mu.RLock()
 
 	if e.dependencies != nil {
@@ -140,8 +138,8 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 			break
 		}
 
-		if !e.NoWarnTodoFixme {
-			base := e.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
+		if !ctx.NoWarnTodoFixme {
+			base := ctx.ImportPathToDir(e.ProjectImportPath) + string(filepath.Separator)
 
 			if strings.HasPrefix(e.Path, base) && !strings.Contains(e.Path, "vendor/") && isTodoOrFixme(buf) {
 				file := e.Path
@@ -150,7 +148,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 					file = rel
 				}
 
-				e.Logger.Warn(fmt.Sprintf("%s:%d:%s", file, i, strings.TrimSpace(string(buf))))
+				ctx.Logger.Warn(fmt.Sprintf("%s:%d:%s", file, i, strings.TrimSpace(string(buf))))
 			}
 		}
 
@@ -193,7 +191,7 @@ func (e *GoFile) Dependencies() ([]Dependency, error) {
 				fromGo = e.Path
 			}
 
-			e.Logger.WithFields(slog.Fields{
+			ctx.Logger.WithFields(slog.Fields{
 				"source":       source,
 				"depends_on":   dependsOn,
 				"from_go_file": fromGo,
@@ -443,21 +441,21 @@ func (e *GoFile) Buildable() bool {
 	return false
 }
 
-func (e *GoFile) Build() error {
+func (e *GoFile) Build(zbcontext.Context) error {
 	// noop
 	return nil
 }
 
-func (e *GoFile) Install() error {
+func (e *GoFile) Install(zbcontext.Context) error {
 	// noop
 	return nil
 }
 
-func (e *GoFile) Generate() error {
+func (e *GoFile) Generate(ctx zbcontext.Context) error {
 	args := []string{"generate"}
 	args = append(args, e.BuildArgs...)
 	args = append(args, e.Path)
 
-	err := e.GoExec(args...)
+	err := ctx.GoExec(args...)
 	return err
 }

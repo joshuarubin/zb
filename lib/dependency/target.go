@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"jrubin.io/zb/lib/dag"
+	"jrubin.io/zb/lib/zbcontext"
 )
 
 type Target struct {
@@ -170,13 +171,13 @@ func (ts *Targets) Append(r *Targets) {
 
 type TargetFunc func(*Target) error
 
-func Each(targets []*Target, fn TargetFunc) error {
+func Each(ctx zbcontext.Context, targets []*Target, fn TargetFunc) error {
 	var group errgroup.Group
 
 	for _, t := range targets {
 		target := t
 
-		deps, err := target.Dependencies()
+		deps, err := target.Dependencies(ctx)
 		if err != nil {
 			return err
 		}
@@ -221,9 +222,9 @@ func (tt TargetType) String() string {
 	return ""
 }
 
-func Build(tt TargetType, targets []*Target) (int, error) {
+func Build(ctx zbcontext.Context, tt TargetType, targets []*Target) (int, error) {
 	var built uint32
-	err := Each(targets, func(target *Target) error {
+	err := Each(ctx, targets, func(target *Target) error {
 		if tt == TargetGenerate {
 			if _, ok := target.Dependency.(*GoGenerateFile); !ok {
 				// exclude all dependencies that aren't go generate files
@@ -231,7 +232,7 @@ func Build(tt TargetType, targets []*Target) (int, error) {
 			}
 		}
 
-		deps, err := target.Dependencies()
+		deps, err := target.Dependencies(ctx)
 		if err != nil {
 			return err
 		}
@@ -245,9 +246,9 @@ func Build(tt TargetType, targets []*Target) (int, error) {
 			}
 
 			if tt == TargetInstall {
-				err = target.Install()
+				err = target.Install(ctx)
 			} else {
-				err = target.Build()
+				err = target.Build(ctx)
 			}
 
 			if err != nil {

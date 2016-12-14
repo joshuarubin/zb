@@ -19,7 +19,6 @@ import (
 
 // ZBLint provides methods for working with cached lint result files
 type ZBLint struct {
-	zbcontext.Context
 	lintflags.Data
 	NoMissingComment bool
 	IgnoreSuffixes   cli.StringSlice
@@ -40,7 +39,7 @@ var DefaultIgnoreSuffixes = []string{
 
 // LintSetup must be called before other methods to complete the configuration
 // from the context
-func (l *ZBLint) LintSetup() {
+func (l *ZBLint) LintSetup(ctx zbcontext.Context) zbcontext.Context {
 	if len(l.IgnoreSuffixes) == 0 {
 		l.IgnoreSuffixes = DefaultIgnoreSuffixes
 	}
@@ -54,32 +53,34 @@ func (l *ZBLint) LintSetup() {
 		l.ignoreSuffixMap[is] = struct{}{}
 	}
 
-	if filepath.Base(l.CacheDir) != "lint" {
-		l.CacheDir = filepath.Join(l.CacheDir, "lint")
+	if filepath.Base(ctx.CacheDir) != "lint" {
+		ctx.CacheDir = filepath.Join(ctx.CacheDir, "lint")
 	}
+
+	return ctx
 }
 
 // CacheFile returns the location of the lint cache file for a given package
-func (l *ZBLint) CacheFile(p *project.Package) (string, error) {
+func (l *ZBLint) CacheFile(ctx zbcontext.Context, p *project.Package) (string, error) {
 	lintHash, err := p.LintHash(&l.Data)
 	if err != nil {
 		return "", err
 	}
 
 	return filepath.Join(
-		l.CacheDir,
+		ctx.CacheDir,
 		lintHash[:3],
 		fmt.Sprintf("%s.lint", lintHash[3:]),
 	), nil
 }
 
 // HaveResult checks to see if a lint result is available for a given package
-func (l *ZBLint) HaveResult(p *project.Package) (bool, error) {
+func (l *ZBLint) HaveResult(ctx zbcontext.Context, p *project.Package) (bool, error) {
 	if l.Data.Force {
 		return false, nil
 	}
 
-	file, err := l.CacheFile(p)
+	file, err := l.CacheFile(ctx, p)
 	if err != nil {
 		return false, err
 	}

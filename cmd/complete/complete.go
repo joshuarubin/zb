@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"jrubin.io/zb/cmd"
-	"jrubin.io/zb/lib/zbcontext"
 )
 
 // Cmd is the complete command
@@ -29,35 +28,35 @@ type cc struct {
 	Zsh      shell
 }
 
-func (cmd *cc) New(app *cli.App, _ zbcontext.Context) cli.Command {
-	cmd.Bash = bash
-	cmd.Zsh = zsh
-	cmd.AppName = app.Name
-	cmd.FlagName = cli.BashCompletionFlag.Name
+func (co *cc) New(app *cli.App) cli.Command {
+	co.Bash = bash
+	co.Zsh = zsh
+	co.AppName = app.Name
+	co.FlagName = cli.BashCompletionFlag.Name
 
 	return cli.Command{
 		Name:        "complete",
 		Usage:       "generate autocomplete script",
 		Description: `eval "$(zb complete)"`,
-		Before:      cmd.setup,
-		Action:      cmd.run,
+		Before:      co.setup,
+		Action:      co.run,
 	}
 }
 
-func (cmd *cc) setup(c *cli.Context) error {
+func (co *cc) setup(c *cli.Context) error {
 	switch shell := filepath.Base(os.Getenv("SHELL")); shell {
 	case "bash":
-		cmd.Shell = bash
+		co.Shell = bash
 	case "zsh":
-		cmd.Shell = zsh
+		co.Shell = zsh
 	default:
 		return errors.Errorf("unsupported shell: %s", shell)
 	}
 	return nil
 }
 
-func (cmd *cc) run(c *cli.Context) error {
-	return tpl.Execute(c.App.Writer, cmd)
+func (co *cc) run(c *cli.Context) error {
+	return tpl.Execute(c.App.Writer, co)
 }
 
 var tpl *template.Template

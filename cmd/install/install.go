@@ -13,23 +13,21 @@ import (
 var Cmd cmd.Constructor = &cc{}
 
 type cc struct {
-	zbcontext.Context
 	buildflags.Data
 }
 
-func (cmd *cc) New(_ *cli.App, ctx zbcontext.Context) cli.Command {
-	cmd.Context = ctx
-
+func (co *cc) New(_ *cli.App) cli.Command {
 	return cli.Command{
 		Name:      "install",
 		Usage:     "compile and install all of the packages in each of the projects",
 		ArgsUsage: "[build flags] [packages]",
 		Action: func(c *cli.Context) error {
-			cmd.Context.BuildContext = cmd.Data.BuildContext()
-			cmd.Context.BuildArger = cmd
-			return Run(cmd.Context, dependency.TargetInstall, c.Args()...)
+			ctx := cmd.Context(c)
+			ctx.BuildContext = co.Data.BuildContext()
+			ctx.BuildArger = co
+			return Run(ctx, dependency.TargetInstall, c.Args()...)
 		},
-		Flags: cmd.BuildFlags(true),
+		Flags: co.BuildFlags(true),
 	}
 }
 
@@ -60,7 +58,7 @@ func installPackage(ctx zbcontext.Context, tt dependency.TargetType, args ...str
 		return 0, err
 	}
 
-	return pkgs.Build(tt)
+	return pkgs.Build(ctx, tt)
 }
 
 func installProject(ctx zbcontext.Context, tt dependency.TargetType, args ...string) (int, error) {
@@ -69,5 +67,5 @@ func installProject(ctx zbcontext.Context, tt dependency.TargetType, args ...str
 		return 0, err
 	}
 
-	return projects.Build(tt)
+	return projects.Build(ctx, tt)
 }

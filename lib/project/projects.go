@@ -53,7 +53,7 @@ func Projects(ctx zbcontext.Context, args ...string) (List, error) {
 		}
 
 		if projects.Insert(p) {
-			if err = p.fillPackages(); err != nil {
+			if err = p.fillPackages(ctx); err != nil {
 				return nil, err
 			}
 		}
@@ -64,7 +64,6 @@ func Projects(ctx zbcontext.Context, args ...string) (List, error) {
 
 func project(ctx zbcontext.Context, importPath string) (*Project, error) {
 	p := &Project{
-		Context:  ctx,
 		Packages: make([]*Package, 1),
 	}
 

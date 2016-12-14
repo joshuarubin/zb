@@ -12,7 +12,6 @@ import (
 
 type GoPackage struct {
 	*build.Package
-	zbcontext.Context
 	BuildArgs         []string
 	Path              string
 	ProjectImportPath string
@@ -26,9 +25,9 @@ func (pkg *GoPackage) Name() string {
 	return pkg.Path
 }
 
-func (pkg *GoPackage) Build() error {
+func (pkg *GoPackage) Build(ctx zbcontext.Context) error {
 	if !pkg.IsCommand() {
-		return pkg.Install()
+		return pkg.Install(ctx)
 	}
 
 	path := pkg.Name()
@@ -41,23 +40,23 @@ func (pkg *GoPackage) Build() error {
 	args = append(args, "-o", path)
 	args = append(args, pkg.ImportPath)
 
-	if err := pkg.GoExec(args...); err != nil {
+	if err := ctx.GoExec(args...); err != nil {
 		return err
 	}
 
-	return pkg.Touch(pkg.Name())
+	return ctx.Touch(pkg.Name())
 }
 
-func (pkg *GoPackage) Install() error {
+func (pkg *GoPackage) Install(ctx zbcontext.Context) error {
 	args := []string{"install"}
 	args = append(args, pkg.BuildArgs...)
 	args = append(args, pkg.ImportPath)
 
-	if err := pkg.GoExec(args...); err != nil {
+	if err := ctx.GoExec(args...); err != nil {
 		return err
 	}
 
-	return pkg.Touch(pkg.Name())
+	return ctx.Touch(pkg.Name())
 }
 
 func (pkg *GoPackage) ModTime() time.Time {
@@ -94,7 +93,7 @@ func (pkg *GoPackage) files() []Dependency {
 	return gofiles
 }
 
-func (pkg *GoPackage) packages() ([]Dependency, error) {
+func (pkg *GoPackage) packages(ctx zbcontext.Context) ([]Dependency, error) {
 	var pkgs []Dependency
 
 	imports := pkg.Imports
@@ -105,7 +104,7 @@ func (pkg *GoPackage) packages() ([]Dependency, error) {
 			continue
 		}
 
-		p, err := pkg.Import(i, pkg.Dir)
+		p, err := ctx.Import(i, pkg.Dir)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +113,6 @@ func (pkg *GoPackage) packages() ([]Dependency, error) {
 			ProjectImportPath: pkg.ProjectImportPath,
 			Path:              p.PkgObj,
 			Package:           p,
-			Context:           pkg.Context,
 			BuildArgs:         pkg.BuildArgs,
 		})
 	}
@@ -126,12 +124,12 @@ func (pkg *GoPackage) Buildable() bool {
 	return true
 }
 
-func (pkg *GoPackage) Dependencies() ([]Dependency, error) {
+func (pkg *GoPackage) Dependencies(ctx zbcontext.Context) ([]Dependency, error) {
 	if pkg.dependencies != nil {
 		return pkg.dependencies, nil
 	}
 
-	pkgs, err := pkg.packages()
+	pkgs, err := pkg.packages(ctx)
 	if err != nil {
 		return nil, err
 	}

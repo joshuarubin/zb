@@ -32,12 +32,14 @@ var (
 	// populated by zb build ldflags
 	gitCommit, buildDate string
 
-	level = slog.InfoLevel
-	app   = cli.NewApp()
+	level  = slog.InfoLevel
+	app    = cli.NewApp()
+	logger = slog.Logger{}
 
 	ctx = zbcontext.Context{
 		GitCommit: &gitCommit,
 		BuildDate: &buildDate,
+		Logger:    &logger,
 	}
 )
 
@@ -94,8 +96,10 @@ func init() {
 		},
 	}
 
+	app.Metadata = map[string]interface{}{}
+
 	for _, sc := range subcommands {
-		c := sc.New(app, ctx)
+		c := sc.New(app)
 		c.Before = wrapFn(c.Before)
 		c.Action = wrapFn(c.Action)
 		c.After = wrapFn(c.After)
@@ -111,7 +115,8 @@ func main() {
 }
 
 func setup() {
-	ctx.Logger.RegisterHandler(level, &text.Handler{
+	app.Metadata["Context"] = ctx
+	logger.RegisterHandler(level, &text.Handler{
 		Writer:           os.Stderr,
 		DisableTimestamp: true,
 	})

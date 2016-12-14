@@ -58,14 +58,14 @@ func (p Packages) Append(r Packages) Packages {
 	return p
 }
 
-func (p Packages) targets(tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
+func (p Packages) targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
 	unique := dependency.Targets{}
 	var group errgroup.Group
 
 	for _, pkg := range p {
 		pp := pkg
 		group.Go(func() error {
-			ts, err := pp.Targets(tt, projectDir, gitCommit)
+			ts, err := pp.Targets(ctx, tt, projectDir, gitCommit)
 			if err != nil {
 				return err
 			}
@@ -80,8 +80,8 @@ func (p Packages) targets(tt dependency.TargetType, projectDir string, gitCommit
 	return &unique, nil
 }
 
-func (p Packages) Targets(tt dependency.TargetType) ([]*dependency.Target, error) {
-	unique, err := p.targets(tt, "", nil)
+func (p Packages) Targets(ctx zbcontext.Context, tt dependency.TargetType) ([]*dependency.Target, error) {
+	unique, err := p.targets(ctx, tt, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,12 +101,12 @@ func (p Packages) Targets(tt dependency.TargetType) ([]*dependency.Target, error
 	return targets, nil
 }
 
-func (p Packages) Build(tt dependency.TargetType) (int, error) {
-	targets, err := p.Targets(tt)
+func (p Packages) Build(ctx zbcontext.Context, tt dependency.TargetType) (int, error) {
+	targets, err := p.Targets(ctx, tt)
 	if err != nil {
 		return 0, err
 	}
-	return dependency.Build(tt, targets)
+	return dependency.Build(ctx, tt, targets)
 }
 
 func ListPackages(ctx zbcontext.Context, paths ...string) (Packages, error) {
