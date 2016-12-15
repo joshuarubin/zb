@@ -28,7 +28,7 @@ func (f GoGenerateFile) Build(ctx zbcontext.Context) error {
 	f.GoFile.mu.Lock()
 	defer f.GoFile.mu.Unlock()
 
-	if !f.Depends.ModTime().After(f.ModTime()) {
+	if !ctx.RebuildAll() && !f.Depends.ModTime().After(f.ModTime()) {
 		return nil
 	}
 

@@ -148,6 +148,10 @@ func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
 	return args
 }
 
+func (f *Data) RebuildAll() bool {
+	return f.A
+}
+
 // BuildContext returns a build context based on environment variables GOARCH,
 // GOOS, GOROOT, GOPATH, CGO_ENABLED and command line flags
 func (f *Data) BuildContext() *build.Context {

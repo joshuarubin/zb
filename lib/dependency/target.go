@@ -1,13 +1,12 @@
 package dependency
 
 import (
+	"errors"
 	"reflect"
 	"sync"
 	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
-
-	"github.com/pkg/errors"
 
 	"jrubin.io/zb/lib/dag"
 	"jrubin.io/zb/lib/zbcontext"
@@ -174,6 +173,8 @@ type TargetFunc func(*Target) error
 func Each(ctx zbcontext.Context, targets []*Target, fn TargetFunc) error {
 	var group errgroup.Group
 
+	var cancel uint32
+
 	for _, t := range targets {
 		target := t
 
@@ -182,20 +183,30 @@ func Each(ctx zbcontext.Context, targets []*Target, fn TargetFunc) error {
 			return err
 		}
 
-		group.Go(func() error {
-			defer target.Done()
+		group.Go(func() (err error) {
+			defer func() {
+				if err != nil {
+					atomic.StoreUint32(&cancel, 1)
+				}
+				target.Done()
+			}()
 
 			if !target.Buildable() && len(deps) == 0 {
-				return nil
+				return
 			}
 
 			target.Wait()
 
-			if !target.Buildable() {
-				return nil
+			if atomic.LoadUint32(&cancel) == 1 {
+				return
 			}
 
-			return fn(target)
+			if !target.Buildable() {
+				return
+			}
+
+			err = fn(target)
+			return
 		})
 	}
 
@@ -241,7 +252,7 @@ func Build(ctx zbcontext.Context, tt TargetType, targets []*Target) (int, error)
 		for _, dep := range deps {
 			// don't use .Before since filesystem time resolution might
 			// cause files times to be within the same second
-			if !dep.ModTime().After(target.ModTime()) {
+			if !ctx.RebuildAll() && !dep.ModTime().After(target.ModTime()) {
 				continue
 			}
 

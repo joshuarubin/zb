@@ -22,6 +22,7 @@ import (
 
 type BuildArger interface {
 	BuildArgs(*build.Package, *core.Hash) []string
+	RebuildAll() bool
 }
 
 // Context for package related commands
@@ -33,6 +34,7 @@ type Context struct {
 	Package              bool
 	BuildContext         *build.Context
 	BuildArger
+	NoGenerate bool
 
 	ExcludeVendor bool
 }

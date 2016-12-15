@@ -94,6 +94,12 @@ func init() {
 			Destination: &ctx.Package,
 			Usage:       "run tests only for the listed packages, not all packages in the projects",
 		},
+		cli.BoolFlag{
+			Name:        "no-generate, g",
+			EnvVar:      "NO_GENERATE",
+			Destination: &ctx.NoGenerate,
+			Usage:       "calculating dependencies for go generate can sometimes be slow, enable this to speed things up",
+		},
 	}
 
 	app.Metadata = map[string]interface{}{}

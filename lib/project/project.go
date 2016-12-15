@@ -50,6 +50,13 @@ func (p *Project) fillPackages(ctx zbcontext.Context) error {
 			return err
 		}
 
+		// if the -a build flag was specified, excluded vendored
+		// packages as those will be built by the go tool through it's
+		// dependency calculation
+		if ctx.BuildArger != nil && ctx.RebuildAll() && pkg.IsVendored {
+			continue
+		}
+
 		if ctx.ExcludeVendor && pkg.IsVendored {
 			continue
 		}

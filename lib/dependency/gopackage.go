@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/src-d/go-git.v4/core"
+
 	"jrubin.io/zb/lib/zbcontext"
 )
 
 type GoPackage struct {
 	*build.Package
-	BuildArgs         []string
+	Hash              *core.Hash
 	Path              string
 	ProjectImportPath string
 
@@ -36,7 +38,7 @@ func (pkg *GoPackage) Build(ctx zbcontext.Context) error {
 	}
 
 	args := []string{"build"}
-	args = append(args, pkg.BuildArgs...)
+	args = append(args, pkg.BuildArgs(ctx)...)
 	args = append(args, "-o", path)
 	args = append(args, pkg.ImportPath)
 
@@ -47,9 +49,13 @@ func (pkg *GoPackage) Build(ctx zbcontext.Context) error {
 	return ctx.Touch(pkg.Name())
 }
 
+func (pkg *GoPackage) BuildArgs(ctx zbcontext.Context) []string {
+	return ctx.BuildArgs(pkg.Package, pkg.Hash)
+}
+
 func (pkg *GoPackage) Install(ctx zbcontext.Context) error {
 	args := []string{"install"}
-	args = append(args, pkg.BuildArgs...)
+	args = append(args, pkg.BuildArgs(ctx)...)
 	args = append(args, pkg.ImportPath)
 
 	if err := ctx.GoExec(args...); err != nil {
@@ -68,7 +74,7 @@ func (pkg *GoPackage) ModTime() time.Time {
 	return i.ModTime()
 }
 
-func (pkg *GoPackage) files() []Dependency {
+func (pkg *GoPackage) files(ctx zbcontext.Context) []Dependency {
 	var files []string
 
 	files = append(files, pkg.GoFiles...)
@@ -87,7 +93,7 @@ func (pkg *GoPackage) files() []Dependency {
 
 	gofiles := make([]Dependency, len(files))
 	for i, f := range files {
-		gofiles[i] = NewGoFile(pkg, filepath.Join(pkg.Dir, f))
+		gofiles[i] = NewGoFile(ctx, pkg, filepath.Join(pkg.Dir, f))
 	}
 
 	return gofiles
@@ -113,7 +119,7 @@ func (pkg *GoPackage) packages(ctx zbcontext.Context) ([]Dependency, error) {
 			ProjectImportPath: pkg.ProjectImportPath,
 			Path:              p.PkgObj,
 			Package:           p,
-			BuildArgs:         pkg.BuildArgs,
+			Hash:              pkg.Hash,
 		})
 	}
 
@@ -135,7 +141,7 @@ func (pkg *GoPackage) Dependencies(ctx zbcontext.Context) ([]Dependency, error) 
 	}
 
 	pkg.dependencies = pkgs
-	pkg.dependencies = append(pkg.dependencies, pkg.files()...)
+	pkg.dependencies = append(pkg.dependencies, pkg.files(ctx)...)
 
 	return pkg.dependencies, nil
 }

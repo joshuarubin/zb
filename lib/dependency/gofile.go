@@ -31,7 +31,7 @@ type GoFile struct {
 var goFileCache = map[string]*GoFile{}
 var goFileCacheMu sync.RWMutex
 
-func NewGoFile(pkg *GoPackage, path string) *GoFile {
+func NewGoFile(ctx zbcontext.Context, pkg *GoPackage, path string) *GoFile {
 	goFileCacheMu.RLock()
 
 	if f, ok := goFileCache[path]; ok {
@@ -49,7 +49,7 @@ func NewGoFile(pkg *GoPackage, path string) *GoFile {
 	}
 
 	f := &GoFile{
-		BuildArgs:         pkg.BuildArgs,
+		BuildArgs:         pkg.BuildArgs(ctx),
 		Path:              path,
 		ProjectImportPath: pkg.ProjectImportPath,
 	}
@@ -82,6 +82,10 @@ func isTodoOrFixme(buf []byte) bool {
 }
 
 func (e *GoFile) Dependencies(ctx zbcontext.Context) ([]Dependency, error) {
+	if ctx.NoGenerate {
+		return nil, nil
+	}
+
 	e.mu.RLock()
 
 	if e.dependencies != nil {

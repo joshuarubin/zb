@@ -89,13 +89,21 @@ func (p Packages) Targets(ctx zbcontext.Context, tt dependency.TargetType) ([]*d
 	targets := unique.TopologicalSort()
 
 	// set up the waitgroup dependencies
-	for _, t := range targets {
+	for i, t := range targets {
 		target := t
 
-		target.RequiredBy.Range(func(r *dependency.Target) {
-			r.Add(1)
-			target.OnDone(r.WaitGroup.Done)
-		})
+		if ctx.RebuildAll() {
+			// do a sequential build when -a is specified
+			if i != len(targets)-1 {
+				target.Add(1)
+				targets[i+1].OnDone(target.WaitGroup.Done)
+			}
+		} else {
+			target.RequiredBy.Range(func(r *dependency.Target) {
+				r.Add(1)
+				target.OnDone(r.WaitGroup.Done)
+			})
+		}
 	}
 
 	return targets, nil

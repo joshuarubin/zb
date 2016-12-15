@@ -55,7 +55,7 @@ func (pkg *Package) BuildTarget(ctx zbcontext.Context, projectDir string, gitCom
 		ProjectImportPath: ctx.DirToImportPath(projectDir),
 		Path:              pkg.BuildPath(projectDir),
 		Package:           pkg.Package,
-		BuildArgs:         ctx.BuildArgs(pkg.Package, gitCommit),
+		Hash:              gitCommit,
 	}
 }
 
@@ -68,7 +68,7 @@ func (pkg *Package) InstallTarget(ctx zbcontext.Context, projectDir string, gitC
 		ProjectImportPath: ctx.DirToImportPath(projectDir),
 		Path:              pkg.InstallPath(),
 		Package:           pkg.Package,
-		BuildArgs:         ctx.BuildArgs(pkg.Package, gitCommit),
+		Hash:              gitCommit,
 	}
 }
 
@@ -110,6 +110,13 @@ func (pkg *Package) Targets(ctx zbcontext.Context, tt dependency.TargetType, pro
 
 		// append these dependencies to the queue
 		for _, dep := range deps {
+			// if ctx.RebuildAll, only return the package itself, and go
+			// generate dependencies, but not other dependencies, this is
+			// because "go install -a" will handle the dependencies itself
+			if _, ok := dep.(*dependency.GoGenerateFile); !ok && ctx.RebuildAll() {
+				continue
+			}
+
 			queue = append(queue, dependency.NewTarget(dep, target))
 		}
 	}
