@@ -268,52 +268,10 @@ func getConcurrency() int {
 }
 
 // these are disabled in zb by default
-var disabledLinters = []string{"aligncheck", "dupl", "gocyclo", "lll", "structcheck", "test", "testify"}
+var disabledLinters = []string{"aligncheck", "gocyclo"}
 
 // these are enabled in zb by default
-var enabledLinters = []string{"gofmt", "goimports", "unused", "errcheck"}
-
-// the following are disabled in gometalinter by default:
-// testify
-// test
-// gofmt
-// goimports
-// lll
-// misspell
-// unused
-
-// the following are considered slow:
-// structcheck
-// varcheck
-// errcheck
-// aligncheck
-// testify
-// test
-// interfacer
-// unconvert
-// deadcode
-
-// by default enable all linters except:
-// gocyclo
-// dupl
-// aligncheck (slow)
-// test (already disabled)
-// testify (already disabled)
-// lll (already disabled)
-// structcheck (slow)
-//
-// if --fast is given, use default and additionally disable:
-// varcheck (slow)
-// errcheck (slow)
-// interfacer (slow)
-// unconvert (slow)
-// deadcode (slow)
-//
-// enable the following explicitly by default:
-// gofmt
-// goimports
-// misspell
-// unused
+var enabledLinters = []string{"gofmt", "goimports", "misspell", "unused"}
 
 const (
 	disable = "-D"
@@ -321,28 +279,14 @@ const (
 )
 
 func (f *Data) linters() []string {
-	// relevant flags:
-	// --enable
-	// --disable
-	// --enable-all
-	// --disable-all
-	// --fast
+	lm := map[string]string{}
 
-	lm := map[string]string{
-		// DISABLED
-		"aligncheck":  disable,
-		"dupl":        disable,
-		"gocyclo":     disable,
-		"structcheck": disable,
-		// lll     disabled by default in gometalinter
-		// test    disabled by default in gometalinter
-		// testify disabled by default in gometalinter
+	for _, linter := range disabledLinters {
+		lm[linter] = disable
+	}
 
-		// ENABLED
-		"errcheck":  enable,
-		"gofmt":     enable,
-		"goimports": enable,
-		"unused":    enable,
+	for _, linter := range enabledLinters {
+		lm[linter] = enable
 	}
 
 	for _, v := range f.Disable {
