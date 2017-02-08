@@ -1,4 +1,6 @@
-# zb — an opinionated repo based tool for working with go
+# zb — an opinionated repo based tool for linting, testing and building go source
+
+[![GoDoc](https://godoc.org/jrubin.io/zb?status.svg)](https://godoc.org/jrubin.io/zb) [![Go Report Card](https://goreportcard.com/badge/jrubin.io/zb)](https://goreportcard.com/report/jrubin.io/zb)
 
 <pre>
 ███████╗██████╗     ██████╗  ██████╗ ███████╗███████╗    ██╗████████╗
