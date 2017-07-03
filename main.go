@@ -58,7 +58,7 @@ var subcommands = []cmd.Constructor{
 func init() {
 	app.Name = "zb"
 	app.HideVersion = true
-	app.Version = "0.2.0"
+	app.Version = "0.2.1"
 	app.Usage = "an opinionated repo based tool for working with go"
 	app.EnableBashCompletion = true
 	app.BashComplete = cmd.BashComplete

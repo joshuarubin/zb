@@ -48,7 +48,7 @@ type Data struct {
 	Errors           bool
 	JSON             bool
 	Checkstyle       bool
-	NoEnableGC       bool
+	EnableGC         bool
 	Aggregate        bool
 	Disable          cli.StringSlice
 	Enable           cli.StringSlice
@@ -186,9 +186,9 @@ func (f *Data) LintFlags() []cli.Flag {
 			Destination: &f.Checkstyle,
 		},
 		cli.BoolFlag{
-			Name:        "no-enable-gc",
+			Name:        "enable-gc",
 			Usage:       "Do not enable GC for linters (useful on large repositories).",
-			Destination: &f.NoEnableGC,
+			Destination: &f.EnableGC,
 		},
 		cli.BoolFlag{
 			Name:        "aggregate",
@@ -424,7 +424,7 @@ func (f *Data) LintArgs() []string {
 		args = append(args, "--checkstyle")
 	}
 
-	if !f.NoEnableGC {
+	if f.EnableGC {
 		args = append(args, "--enable-gc")
 	}
 
