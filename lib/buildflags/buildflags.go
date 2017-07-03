@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"github.com/urfave/cli"
 )
@@ -47,7 +47,7 @@ type Data struct {
 const dateFormat = "2006-01-02T15:04:05+00:00"
 
 // BuildArgs returns strings suitable for passing to the go command line
-func (f *Data) BuildArgs(pkg *build.Package, gitCommit *core.Hash) []string {
+func (f *Data) BuildArgs(pkg *build.Package, gitCommit *plumbing.Hash) []string {
 	var args []string
 
 	if f.A {

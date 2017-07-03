@@ -271,7 +271,7 @@ func getConcurrency() int {
 var disabledLinters = []string{"aligncheck", "gocyclo"}
 
 // these are enabled in zb by default
-var enabledLinters = []string{"gofmt", "goimports", "misspell", "unused"}
+var enabledLinters = []string{"gofmt", "goimports", "misspell"}
 
 const (
 	disable = "-D"

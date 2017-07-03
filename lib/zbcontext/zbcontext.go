@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"github.com/urfave/cli"
 
@@ -21,7 +21,7 @@ import (
 )
 
 type BuildArger interface {
-	BuildArgs(*build.Package, *core.Hash) []string
+	BuildArgs(*build.Package, *plumbing.Hash) []string
 	RebuildAll() bool
 }
 

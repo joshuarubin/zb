@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"jrubin.io/zb/lib/zbcontext"
 )
 
 type GoPackage struct {
 	*build.Package
-	Hash              *core.Hash
+	Hash              *plumbing.Hash
 	Path              string
 	ProjectImportPath string
 

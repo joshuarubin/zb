@@ -31,8 +31,11 @@ func NewEntry(log *Logger) *Entry {
 // WithFields returns a new entry with `fields` set.
 func (e *Entry) WithFields(fields Fielder) *Entry {
 	return &Entry{
-		Logger: e.Logger,
-		fields: append(e.fields, fields.Fields()),
+		Logger:     e.Logger,
+		Message:    e.Message,
+		start:      e.start,
+		fields:     append(e.fields, fields.Fields()),
+		traceLevel: e.traceLevel,
 	}
 }
 

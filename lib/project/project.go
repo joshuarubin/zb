@@ -3,8 +3,8 @@ package project
 import (
 	"path/filepath"
 
-	git "gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/core"
+	git "srcd.works/go-git.v4"
+	"srcd.works/go-git.v4/plumbing"
 
 	"jrubin.io/slog"
 	"jrubin.io/zb/lib/dependency"
@@ -18,7 +18,7 @@ type Project struct {
 	Dir      string
 	Packages Packages
 
-	gitCommit *core.Hash
+	gitCommit *plumbing.Hash
 	filled    bool
 }
 
@@ -71,22 +71,20 @@ func (p *Project) Targets(ctx zbcontext.Context, tt dependency.TargetType) (*dep
 	return p.Packages.targets(ctx, tt, p.Dir, p.GitCommit(ctx.Logger))
 }
 
-func (p *Project) GitCommit(logger slog.Interface) *core.Hash {
+func (p *Project) GitCommit(logger slog.Interface) *plumbing.Hash {
 	if p.gitCommit != nil {
 		return p.gitCommit
 	}
 
-	dir := filepath.Join(p.Dir, ".git")
-
-	repo, err := git.NewFilesystemRepository(dir)
+	repo, err := git.PlainOpen(p.Dir)
 	if err != nil {
-		logger.WithError(err).Warn("could not determine git commit")
+		logger.WithField("dir", p.Dir).WithError(err).Warn("could not determine git commit")
 		return nil
 	}
 
 	head, err := repo.Head()
 	if err != nil {
-		logger.WithError(err).Warn("could not determine git commit")
+		logger.WithField("dir", p.Dir).WithError(err).Warn("could not determine git commit")
 		return nil
 	}
 

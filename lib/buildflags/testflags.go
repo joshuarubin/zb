@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -336,7 +336,7 @@ func (f *TestFlagsData) TestFlags() []cli.Flag {
 	return append(f.BuildFlags(false), flags...)
 }
 
-func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *core.Hash) []string {
+func (f *TestFlagsData) TestArgs(pkg *build.Package, gitCommit *plumbing.Hash) []string {
 	args := f.BuildArgs(pkg, gitCommit)
 
 	if f.C {

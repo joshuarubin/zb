@@ -3,7 +3,7 @@ package project
 import (
 	"sort"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"golang.org/x/sync/errgroup"
 	"jrubin.io/zb/lib/dependency"
@@ -58,7 +58,7 @@ func (p Packages) Append(r Packages) Packages {
 	return p
 }
 
-func (p Packages) targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
+func (p Packages) targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *plumbing.Hash) (*dependency.Targets, error) {
 	unique := dependency.Targets{}
 	var group errgroup.Group
 

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"gopkg.in/src-d/go-git.v4/core"
+	"srcd.works/go-git.v4/plumbing"
 
 	"github.com/pkg/errors"
 
@@ -42,7 +42,7 @@ func (pkg *Package) InstallPath() string {
 
 // BuildTarget returns the absolute path of the binary that this package
 // generates when it is built
-func (pkg *Package) BuildTarget(ctx zbcontext.Context, projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
+func (pkg *Package) BuildTarget(ctx zbcontext.Context, projectDir string, gitCommit *plumbing.Hash) *dependency.GoPackage {
 	if !pkg.IsCommand() {
 		return pkg.InstallTarget(ctx, projectDir, gitCommit)
 	}
@@ -59,7 +59,7 @@ func (pkg *Package) BuildTarget(ctx zbcontext.Context, projectDir string, gitCom
 	}
 }
 
-func (pkg *Package) InstallTarget(ctx zbcontext.Context, projectDir string, gitCommit *core.Hash) *dependency.GoPackage {
+func (pkg *Package) InstallTarget(ctx zbcontext.Context, projectDir string, gitCommit *plumbing.Hash) *dependency.GoPackage {
 	if projectDir == "" {
 		projectDir = pkg.Dir
 	}
@@ -72,8 +72,8 @@ func (pkg *Package) InstallTarget(ctx zbcontext.Context, projectDir string, gitC
 	}
 }
 
-func (pkg *Package) Targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *core.Hash) (*dependency.Targets, error) {
-	var fn func(zbcontext.Context, string, *core.Hash) *dependency.GoPackage
+func (pkg *Package) Targets(ctx zbcontext.Context, tt dependency.TargetType, projectDir string, gitCommit *plumbing.Hash) (*dependency.Targets, error) {
+	var fn func(zbcontext.Context, string, *plumbing.Hash) *dependency.GoPackage
 
 	switch tt {
 	case dependency.TargetBuild, dependency.TargetGenerate:
