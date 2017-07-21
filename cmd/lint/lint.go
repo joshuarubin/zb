@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -99,7 +100,12 @@ func (co *cc) exec(ctx zbcontext.Context, w io.Writer, pkgs, toRun project.Packa
 		}
 
 		if len(toRun) > 0 && toRun[0] == pkg {
-			ecode, err := co.runLinter(ctx, w, pkg.Package.Dir, file)
+			path := pkg.Package.Dir
+			if rel, err := filepath.Rel(zbcontext.CWD, path); err == nil {
+				path = rel
+			}
+
+			ecode, err := co.runLinter(ctx, w, path, file)
 			if err != nil {
 				return err
 			}
